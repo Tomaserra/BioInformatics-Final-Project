@@ -1,4 +1,4 @@
-## Important Note of model Computational Efficiency
+## Important Note of Model Computational Efficiency
 
 This analysis involves fitting **485,577 linear models** (one per CpG site), which is computationally intensive.
 

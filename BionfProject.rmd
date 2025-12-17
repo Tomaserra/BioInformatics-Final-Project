@@ -701,8 +701,8 @@ ggplot(plot_cpgs, aes(x = CpG, y = Beta_Coefficient, fill = Beta_Coefficient > 0
   geom_hline(yintercept = 0, linetype = "dashed")
 ```
 
-```{r linear-models-grid, fig.height=8, fig.width=12, fig.cap="Linear regression fits for top 6 CpG sites showing relationship with Braak stage"}
-# Plot linear models for top 6 CpGs
+```{r linear-models-grid, fig.height=8, fig.width=12, fig.cap="Linear regression fits for top CpG sites showing relationship with Braak stage"}
+# Plot linear models for top CpGs
 top_6_cpgs <- top_cpgs[1:min(6, length(top_cpgs))]
 
 # Prepare plotting data
@@ -726,7 +726,7 @@ ggplot(plot_data, aes(x = Braak_stage, y = M_value)) +
               alpha = 0.2, linewidth = 1.2) +
   facet_wrap(~CpG, scales = "free_y", ncol = 3) +
   scale_x_continuous(breaks = 0:6) +
-  labs(title = "Linear Models: Top 6 CpG Sites vs AD Progression",
+  labs(title = "Linear Models: Top CpG Sites vs AD Progression",
        subtitle = "Model: M-value ~ Braak_stage + age + sex + cell_type + region",
        x = "Braak Stage (0 = Control, 6 = Severe AD)",
        y = "M-value (log2 methylation ratio)",

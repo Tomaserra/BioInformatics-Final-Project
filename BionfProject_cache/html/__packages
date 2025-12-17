@@ -1,0 +1,15 @@
+base
+methods
+datasets
+utils
+grDevices
+graphics
+stats
+BiocManager
+BiocGenerics
+Biobase
+GEOquery
+ggplot2
+lattice
+caret
+dplyr

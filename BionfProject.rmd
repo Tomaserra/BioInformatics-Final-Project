@@ -13,9 +13,9 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
                       fig.width = 10, fig.height = 6)
 ```
 
-This project develops a predictive model for Alzheimer's Disease (AD) using DNA methylation data from post-mortem brain tissue. We use logistic regression to identify which methylation markers, after controlling for demographic and technical confounders, can distinguish AD patients from healthy controls.
+This project develops a predictive model for Alzheimer's Disease (AD) using DNA methylation data from post-mortem brain tissue. After controlling for demographic and technical confounders we use logistic regression to identify which methylation markers can distinguish AD patients from healthy controls.
 
-**Key Findings:**
+**TO BE CHECKED Key Findings:**
 
 - Analyzed 485,577 CpG methylation sites from 190 samples
 - Identified significant methylation changes associated with AD progression
@@ -24,21 +24,22 @@ This project develops a predictive model for Alzheimer's Disease (AD) using DNA 
 
 ---
 
-# Introduction
+# **Introduction**
 
-## Alzheimer's Disease Background
+## **Alzheimer's Disease Background** [1]
 
-Alzheimer's Disease (AD) is a progressive neurodegenerative disorder characterized by:
+Alzheimer's Disease (AD) is a non-monogenic progressive neurodegenerative disorder characterized by:
 
 - **Memory loss** and cognitive decline
 - **Pathological hallmarks**: Amyloid-beta plaques and neurofibrillary tangles
 - **Braak staging**: A classification system (0-6) measuring disease progression based on tau pathology distribution
 
-## DNA Methylation in Alzheimer's Disease
+## **DNA Methylation in Alzheimer's Disease**
 
 **What is DNA methylation?**
 
-DNA methylation is an epigenetic modification where methyl groups (CH₃) are added to cytosine bases, typically at CpG dinucleotides. This modification regulates gene expression without changing the DNA sequence.
+DNA methylation is an epigenetic modification where methyl groups (CH₃) are added to cytosine bases, typically at CpG dinucleotides. This modification regulates gene expression without changing the DNA sequence.[2]
+
 
 **Why methylation matters in AD:**
 
@@ -46,9 +47,7 @@ DNA methylation is an epigenetic modification where methyl groups (CH₃) are ad
 - **Gene expression changes**: Methylation affects expression of genes involved in inflammation, synaptic function, and neuronal survival
 - **Potential biomarkers**: Specific methylation changes may serve as disease indicators or therapeutic targets
 
-**Research evidence:**
-
-Recent studies have identified differential methylation in AD-related genes including:
+Recent studies have identified differential methylation in AD-related genes including: [3]
 
 - **APOE** (apolipoprotein E) - major genetic risk factor
 - **APP** (amyloid precursor protein) - involved in plaque formation
@@ -57,16 +56,16 @@ Recent studies have identified differential methylation in AD-related genes incl
 
 ---
 
-## Dataset Description: GSE66351
+## **Dataset Description: GSE66351**
 
-### Data Source
+### **Data Source** [4]
 
 - **Repository**: Gene Expression Omnibus (GEO)
 - **Accession**: GSE66351
 - **Platform**: Illumina HumanMethylation450 BeadChip
 - **Citation**: Lunnon et al. (2014) - "Methylomic profiling implicates cortical deregulation of ANK1 in Alzheimer's disease"
 
-### Sample Characteristics
+### **Sample Characteristics**
 
 **Total samples**: 190 post-mortem brain tissue samples
 
@@ -88,9 +87,9 @@ Recent studies have identified differential methylation in AD-related genes incl
 5. **Cell type**: Neuronal, glial, or bulk tissue (categorical)
 6. **Brain region**: Cortical region sampled (categorical)
 
-### Methylation Data
+### **Methylation Data**
 
-**CpG sites**: 485,577 sites across the genome
+**CpG sites**: 481, 868 sites across the genome
 
 **Measurement**: Beta values (0-1 scale)
 
@@ -102,41 +101,9 @@ Recent studies have identified differential methylation in AD-related genes incl
 
 ---
 
-# Methods
+# **Methods**
 
-## Important Note: Computational Efficiency
-
-This analysis involves fitting **485,577 linear models** (one per CpG site), which is computationally intensive.
-
-**Caching system implemented:**
-
-- **First run**: Takes ~15-20 minutes total
-  - Download dataset: ~5-10 min (500MB file)
-  - Fit linear models: ~10-15 min
-- **Subsequent runs**: Takes ~2 minutes (loads cached results)
-- **Cache location**: `data/` folder (created automatically)
-- **Cache files**:
-  - `GSE66351.rds` - Downloaded dataset (avoids re-downloading)
-  - `cpg_results.rds` - Linear model results (avoids refitting)
-
-**If download fails:**
-
-If you get timeout errors, the dataset file is too large for your connection. Try:
-
-1. **Increase timeout**
-2. **Try on a different network** (university/work connections are faster)
-3. **Manual download alternative:**
-   - Visit: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE66351
-   - Click "Series Matrix File(s)" → Download `GSE66351_series_matrix.txt.gz`
-   - The code will attempt automatic retry 3 times before failing
-
-**To force re-analysis:** Delete the `data/` folder and re-knit.
-
-**For reviewers:** This document can be knitted from scratch without any manual intervention. Just click "Knit" and wait ~15-20 minutes on first run.
-
----
-
-## Data Acquisition and Preprocessing
+## **Data Acquisition and Preprocessing**
 
 ```{r install-packages, results='hide'}
 # Install required packages
@@ -192,7 +159,7 @@ methylation_data <- exprs(gse)
 - CpG sites: `r nrow(methylation_data)`
 - Samples: `r ncol(methylation_data)`
 
-### Clinical Data Preparation
+### **Clinical Data Preparation**
 
 ```{r clinical-data}
 # Extract and clean clinical variables
@@ -246,9 +213,9 @@ knitr::kable(table(clinical_data$braak_stage), col.names = c("Braak Stage", "N")
 
 ---
 
-## Why Convert Beta Values to M-Values?
+## **Why Convert Beta Values to M-Values?**
 
-### The Problem with Beta Values
+### **The Problem with Beta Values** [5]
 
 Beta values (β) range from 0 to 1, representing the proportion of methylated sites. However, they have statistical limitations:
 
@@ -263,7 +230,7 @@ Beta values (β) range from 0 to 1, representing the proportion of methylated si
 
 3. **Non-normal distribution**: Often bimodal (many sites near 0 or 1)
 
-### The M-Value Solution
+### **The M-Value Solution** [6]
 
 M-values are the log₂ ratio of methylated to unmethylated intensities:
 
@@ -276,14 +243,12 @@ $$M = \log_2\left(\frac{\beta}{1-\beta}\right)$$
 - **Better statistical properties**: More appropriate for linear modeling
 - **Interpretable**: M-value differences represent log₂ fold-changes
 
-**Interpretation:**
+**Interpretation: [7]**
 
 - M = 0: Equal methylated/unmethylated (β = 0.5)
 - M > 0: More methylated than unmethylated
 - M < 0: More unmethylated than methylated
 - Difference of 1 M-value ≈ 2-fold change in methylation ratio
-
-**Reference**: Du et al. (2010) "Comparison of Beta-value and M-value methods for quantifying methylation levels by microarray analysis"
 
 ```{r beta-to-m}
 # Conversion function
@@ -313,24 +278,24 @@ sample_m <- as.vector(m_values)[sample_idx]
 
 par(mfrow=c(1,2))
 hist(sample_beta, breaks=50, main="Beta Values", xlab="Beta", col="lightblue")
-hist(sample_m, breaks=50, main="M-Values", xlab="M-value", col="lightcoral")
+hist(sample_m, breaks=50, main="M-Values", xlab="M-value", col="orange")
 par(mfrow=c(1,1))
 ```
 
 ---
 
-## Why Perform Feature Selection?
+## **Why Perform Feature Selection?**
 
-### The Curse of Dimensionality
+### **Dimensionality Problem**
 
-We have **485,577 CpG sites** but only **~190 samples**. This creates several problems:
+We have **481, 868 CpG sites** but only **190 samples**. This creates several problems:
 
 1. **Overfitting**: Model memorizes training data instead of learning patterns
 2. **Computational burden**: Testing all sites in logistic regression is impractical
 3. **Multiple testing**: Need to account for hundreds of thousands of tests
 4. **Loss of power**: Too many irrelevant features obscure true signals
 
-### Solution: Two-Stage Analysis
+### **Solution: Two-Stage Analysis**
 
 **Stage 1: Feature Selection** (identify relevant CpGs)
 
@@ -344,9 +309,7 @@ We have **485,577 CpG sites** but only **~190 samples**. This creates several pr
 
 ---
 
-## Why Linear Modeling for Feature Selection?
-
-### Statistical Framework
+## **Why Linear Modeling for Feature Selection?**
 
 For each CpG site, we fit a linear model:
 
@@ -360,7 +323,7 @@ Where:
 - $\beta_1$ = effect of AD progression on methylation
 - $\epsilon_{ij}$ = residual error
 
-### Why This Approach?
+### **Why This Approach?**
 
 **1. Tests association with disease progression**
 
@@ -368,7 +331,7 @@ Where:
 - More sensitive than binary AD/Control comparison
 - Captures dose-response relationship
 
-**2. Established in epigenome-wide association studies (EWAS)**
+**2. Established in epigenome-wide association studies (EWAS) [8]**
 
 - Standard practice in the field
 - Similar to GWAS (genome-wide association studies)
@@ -382,62 +345,54 @@ Where:
 
 ---
 
-## Why Include Covariates in Feature Selection?
+## **Why Include Covariates in Feature Selection?**
 
-### The Confounding Problem
+### **The Confounding Problem**
 
-Without covariates, we might identify CpG sites that differ between AD and controls, but these differences could be due to:
+Without covariates, we observed too many CpG sites, indicatimng that although these could be differing AD and controls, these differences could also just be due to:
 
 - **Age differences**: AD patients tend to be older
 - **Sex differences**: AD affects women more than men
 - **Cell type composition**: Different cell types have different methylation
 - **Brain region**: Technical differences between regions
 
-### Covariate-Controlled Analysis
+**Ex:** Without covariants, CpG site X is different in AD patients, but maybe it's just because AD patients are older?!
 
-By including covariates, we ask: **"Do methylation levels change with AD progression INDEPENDENT of age, sex, cell type, and region?"**
+### **Covariate-Controlled Analysis**
 
-This gives us:
+By including covariates, we redifine our question: **"Do methylation levels change with AD progression *independen* of age, sex, cell type, and region?"**
+
+This way we are able to analyse:
 
 1. **True AD-specific effects**: Not confounded by demographics
 2. **Mechanistic insights**: Changes specifically due to disease
 3. **Better generalization**: Model works across different populations
 4. **Reduced false positives**: Don't mistake age effects for AD effects
 
-### Example
-
-**Without covariates**: "CpG site X is different in AD patients"
-
-- Maybe it's just because AD patients are older?
-
-**With covariates**: "CpG site X changes with AD progression, even after accounting for age differences"
-
-- Now we know it's AD-specific!
+**Ex:** With covariates, CpG site X changes with AD progression, even after accounting for age differences.
 
 ---
 
-## Multiple Testing Correction: Bonferroni vs FDR
+## **Multiple Testing Correction: FDR vs Bonferroni**
 
-### The Multiple Testing Problem
+### **The Multiple Testing Problem**
 
-We're testing **485,577 CpG sites**, each at α = 0.05. 
+We're testing **481, 868 CpG sites**, each at α = 0.05. 
 
 **Expected false positives** under null hypothesis:
 
-$$485,577 \times 0.05 = 24,279 \text{ false positives!}$$
+$$481,868 \times 0.05 = 24, 093 \text{ false positives!}$$
 
-This is unacceptable - we need correction.
+### **Two Correction Methods**
 
-### Two Correction Methods
-
-**1. False Discovery Rate (FDR) - Benjamini-Hochberg**
+**1. False Discovery Rate (FDR) [9]**
 
 - Controls the **proportion** of false discoveries among rejected hypotheses
 - FDR < 0.05 means < 5% of significant findings are false positives
 - **Less conservative**, higher power
 - Standard in genomics
 
-**2. Bonferroni Correction**
+**2. Bonferroni Correction [10] **
 
 - Controls **family-wise error rate** (FWER)
 - Probability of making ANY false positive ≤ α
@@ -445,7 +400,7 @@ This is unacceptable - we need correction.
 - **More conservative**, lower power
 - Stricter control
 
-### Comparison on Our Data
+### **Comparison on Our Data**
 
 ```{r feature-selection-setup}
 # Prepare data
@@ -554,7 +509,7 @@ message("Successfully analyzed: ", nrow(cpg_results), " CpG sites")
 - Beta_Coefficient = regression slope (NOT methylation Beta values)
 - These coefficients show M-value change per Braak stage increase, controlling for age, sex, cell type, and region
 
-### Applying Both Corrections
+### **Applying Both Corrections**
 
 ```{r multiple-testing}
 # Apply both corrections
@@ -567,12 +522,14 @@ n_sig_fdr <- sum(cpg_results$p_fdr < 0.05)
 n_sig_bonf <- sum(cpg_results$p_bonferroni < 0.05)
 ```
 
+
 **Significance testing results:**
 
 - Uncorrected p < 0.05: **`r n_sig_raw`** (`r sprintf("%.2f%%", 100*n_sig_raw/nrow(cpg_results))` of tested)
 - FDR < 0.05: **`r n_sig_fdr`** (Benjamini-Hochberg)
 - Bonferroni < 0.05: **`r n_sig_bonf`** (Family-wise error control)
 - Expected false positives (5%): `r round(nrow(cpg_results) * 0.05)`
+
 
 ```{r comparison-tables}
 # Sort by each method
@@ -590,21 +547,17 @@ knitr::kable(cpg_results_sorted_bonf[1:10, c("CpG", "Beta_Coefficient", "p_value
              row.names = FALSE)
 ```
 
-### Choosing Bonferroni for This Project
 
-**Reasons for choosing Bonferroni:**
+**Therefore we are choosing Bonferroni:**
 
 1. **Maximum stringency**: We want only the most robust associations
 2. **Clinical application**: False positives are costly in medical contexts
 3. **Small sample size**: Conservative approach compensates for limited power
 4. **API deployment**: Model must be reliable for external use
 
-**Trade-off:**
 
-- **Cost**: Lower power, might miss true associations
-- **Benefit**: High confidence in selected markers
+> By doing this we are doing a trade-off between **Cost** (Lower power, might miss true associations) and **Benefit** (high confidence in selected markers)
 
-For exploratory research, FDR would be appropriate. For a clinical prediction tool, Bonferroni is safer.
 
 ```{r select-cpgs}
 # Use Bonferroni for final selection
@@ -637,6 +590,7 @@ top_cpgs <- cpg_results$CpG[1:n_to_select]
 - Maximum CpGs (after covariates): `r max_cpgs`
 - **CpGs selected: `r length(top_cpgs)`**
 
+
 ```{r show-selected-cpgs}
 # Show selected CpGs with direction of effect
 selected_cpg_details <- cpg_results[1:n_to_select, ]
@@ -651,7 +605,8 @@ knitr::kable(selected_cpg_details[1:min(10, n_to_select),
              row.names = FALSE)
 ```
 
-### Feature Selection Visualizations
+
+### **Feature Selection Visualizations**
 
 ```{r volcano-plot, fig.height=6, fig.width=10, fig.cap="Volcano plot showing effect size vs statistical significance for all tested CpG sites"}
 # Volcano plot
@@ -665,8 +620,8 @@ ggplot(cpg_results, aes(x = Beta_Coefficient, y = log10p, color = selected)) +
   geom_hline(yintercept = bonferroni_threshold, 
              linetype = "dashed", color = "red", size = 1) +
   geom_hline(yintercept = -log10(0.05), 
-             linetype = "dotted", color = "blue", alpha = 0.5) +
-  scale_color_manual(values = c("gray70", "darkred"),
+             linetype = "dotted", color = "turquoise", alpha = 0.5) +
+  scale_color_manual(values = c("gray70", "gold"),
                      labels = c("Not selected", "Selected for model"),
                      name = "") +
   labs(title = "Volcano Plot: Feature Selection Results",
@@ -688,7 +643,7 @@ plot_cpgs$CpG <- factor(plot_cpgs$CpG,
 ggplot(plot_cpgs, aes(x = CpG, y = Beta_Coefficient, fill = Beta_Coefficient > 0)) +
   geom_bar(stat = "identity") +
   coord_flip() +
-  scale_fill_manual(values = c("TRUE" = "#d73027", "FALSE" = "#4575b4"),
+  scale_fill_manual(values = c("TRUE" = "darkgreen", "FALSE" = "tomato"),
                     labels = c("Decreases with progression", 
                                "Increases with progression")) +
   labs(title = "Selected CpG Sites: Effect on Methylation",
@@ -702,14 +657,15 @@ ggplot(plot_cpgs, aes(x = CpG, y = Beta_Coefficient, fill = Beta_Coefficient > 0
 ```
 
 ```{r linear-models-grid, fig.height=8, fig.width=12, fig.cap="Linear regression fits for top CpG sites showing relationship with Braak stage"}
-# Plot linear models for top CpGs
-top_6_cpgs <- top_cpgs[1:min(6, length(top_cpgs))]
+# Plot linear models for top 6 CpGs
+top_cpgs <- top_cpgs[1:min(6, length(top_cpgs))]
+
 
 # Prepare plotting data
 braak_for_plot <- as.numeric(clinical_data_valid$braak_stage)
 
 plot_data_list <- list()
-for (cpg in top_6_cpgs) {
+for (cpg in top_cpgs) {
   plot_data_list[[cpg]] <- data.frame(
     CpG = cpg,
     M_value = m_values_valid[cpg, ],
@@ -722,7 +678,7 @@ plot_data <- plot_data[complete.cases(plot_data), ]
 
 ggplot(plot_data, aes(x = Braak_stage, y = M_value)) +
   geom_point(alpha = 0.6, size = 2, color = "gray40") +
-  geom_smooth(method = "lm", se = TRUE, color = "#d62728", fill = "#ff7f0e", 
+  geom_smooth(method = "lm", se = TRUE, color = "darkcyan", fill = "#ff7f0e", 
               alpha = 0.2, linewidth = 1.2) +
   facet_wrap(~CpG, scales = "free_y", ncol = 3) +
   scale_x_continuous(breaks = 0:6) +
@@ -758,7 +714,7 @@ equation_text <- paste0(
 
 ggplot(best_cpg_data, aes(x = Braak_stage, y = M_value)) +
   geom_jitter(alpha = 0.6, size = 3, width = 0.1, height = 0, color = "gray40") +
-  geom_smooth(method = "lm", se = TRUE, color = "#d62728", fill = "#ff7f0e", 
+  geom_smooth(method = "lm", se = TRUE, color = "darkcyan", fill = "#ff7f0e", 
               alpha = 0.2, linewidth = 1.5) +
   scale_x_continuous(breaks = 0:6) +
   labs(title = paste("Most Significant CpG Site:", best_cpg),
@@ -779,48 +735,21 @@ ggplot(best_cpg_data, aes(x = Braak_stage, y = M_value)) +
 
 ---
 
-## Why Split Data into Training and Test Sets?
+## **Split Data into Training and Test Sets**
 
-### The Generalization Problem
+### **The Generalization Problem**
 
-**Goal**: Build a model that works on **new, unseen data**
+Since our goal is to build a model that works on **new, unseen data**, we need proper validation to make sure our model **Learned patterns** and is not just **Memoring training data**:
 
-**Problem**: Without proper validation, we don't know if our model:
 
-- **Learned patterns** (good!)
-- **Memorized training data** (overfitting - bad!)
+* **Training set (80%)**: Used to fit the model, learn coefficients and optimize parameters.
 
-### The Solution: Train/Test Split
+* **Test set (20%)**: Used to evaluate performance in completely independent data that the model has never seen these samples, creating and honest assessment of generalization.
 
-**Training set (80%)**: Used to fit the model
+> 80/20 Split is a **Common standard** in machine learning that **balances**:
+  * Training set: Large enough to learn patterns
+  * Test set: Large enough for reliable evaluation
 
-- Learn coefficients
-- Optimize parameters
-- Select features (already done)
-
-**Test set (20%)**: Used to evaluate performance
-
-- Completely independent data
-- Model has never seen these samples
-- Honest assessment of generalization
-
-### Why 80/20 Split?
-
-- **Common standard** in machine learning
-- **Balances**:
-  - Training set: Large enough to learn patterns
-  - Test set: Large enough for reliable evaluation
-- **Alternative approaches**: Cross-validation (not used here due to small sample size)
-
-### Key Principle
-
-**Never use test data during model development!**
-
-- Don't select features using test data
-- Don't tune parameters using test data
-- Only evaluate final model on test data
-
-This ensures unbiased performance estimation.
 
 ```{r train-test-split, results='hide'}
 # Prepare final dataset
@@ -853,9 +782,9 @@ test_data <- analysis_data[-train_idx, ]
 
 ---
 
-# Logistic Regression Model
+# **Logistic Regression Model**
 
-## Model Development
+## **Model Development**
 
 ```{r fit-logistic-model, results='hide', message=FALSE}
 # Create model formula
@@ -879,9 +808,9 @@ summary(model)
 
 ---
 
-## Coefficient Interpretation
+## **Coefficient Interpretation**
 
-### Understanding Logistic Regression Output
+### **Understanding Logistic Regression Output**
 
 **The model estimates:**
 
@@ -944,7 +873,7 @@ interpretation <- data.frame(
 interpretation_predictors <- interpretation[interpretation$Variable != "(Intercept)", ]
 ```
 
-### Full Coefficient Table
+### **Full Coefficient Table**
 
 ```{r coefficient-table}
 knitr::kable(interpretation_predictors,
@@ -968,7 +897,7 @@ knitr::kable(interpretation_predictors,
   - p < 0.05: Significant (**\***)
   - p < 0.10: Marginally significant (*)
 
-### Detailed Interpretation of Key Predictors
+### **Detailed Interpretation of Key Predictors**
 
 ```{r detailed-interpretation}
 # Methylation markers
@@ -1050,9 +979,25 @@ if (nrow(covariate_predictors) > 0) {
 
 ---
 
-# Model Evaluation
+# **Model Evaluation**
 
-## Performance Metrics
+## **Performance Metrics Formulas**
+
+**Accuracy**: Overall correctness = (TP + TN) / Total
+
+**Sensitivity (Recall)**: Ability to detect AD cases = TP / (TP + FN)
+
+- Important for screening: Don't want to miss AD patients
+
+**Specificity**: Ability to identify controls = TN / (TN + FP)
+
+- Important to avoid false alarms
+
+**Positive Predictive Value (PPV)**: If test says "AD", probability it's correct = TP / (TP + FP)
+
+**Negative Predictive Value (NPV)**: If test says "Control", probability it's correct = TN / (TN + FN)
+
+## **Performance Metrics**
 
 ```{r model-evaluation, results='hide'}
 # Predictions on training set
@@ -1080,7 +1025,7 @@ test_ppv <- test_confusion[2, 2] / sum(test_confusion[2, ])
 test_npv <- test_confusion[1, 1] / sum(test_confusion[1, ])
 ```
 
-### Training Set Performance
+### **Training Set Performance**
 
 ```{r train-confusion}
 knitr::kable(train_confusion, caption = "Training Set Confusion Matrix")
@@ -1092,7 +1037,7 @@ knitr::kable(train_confusion, caption = "Training Set Confusion Matrix")
 - **PPV**: `r sprintf("%.2f%%", train_ppv * 100)` (precision)
 - **NPV**: `r sprintf("%.2f%%", train_npv * 100)`
 
-### Test Set Performance
+### **Test Set Performance**
 
 ```{r test-confusion}
 knitr::kable(test_confusion, caption = "Test Set Confusion Matrix")
@@ -1104,7 +1049,7 @@ knitr::kable(test_confusion, caption = "Test Set Confusion Matrix")
 - **PPV**: `r sprintf("%.2f%%", test_ppv * 100)` (precision)
 - **NPV**: `r sprintf("%.2f%%", test_npv * 100)`
 
-### Generalization Assessment
+### **Generalization Assessment**
 
 - Training accuracy: `r sprintf("%.2f%%", train_accuracy * 100)`
 - Test accuracy: `r sprintf("%.2f%%", test_accuracy * 100)`
@@ -1112,25 +1057,10 @@ knitr::kable(test_confusion, caption = "Test Set Confusion Matrix")
 
 `r if(train_accuracy - test_accuracy > 0.10) "⚠ Warning: >10% drop suggests overfitting" else if(train_accuracy - test_accuracy < -0.05) "✓ Test performance exceeds training (unusual but good!)" else "✓ Good generalization - model performs consistently"`
 
-### Performance Metrics Explained
-
-**Accuracy**: Overall correctness = (TP + TN) / Total
-
-**Sensitivity (Recall)**: Ability to detect AD cases = TP / (TP + FN)
-
-- Important for screening: Don't want to miss AD patients
-
-**Specificity**: Ability to identify controls = TN / (TN + FP)
-
-- Important to avoid false alarms
-
-**Positive Predictive Value (PPV)**: If test says "AD", probability it's correct = TP / (TP + FP)
-
-**Negative Predictive Value (NPV)**: If test says "Control", probability it's correct = TN / (TN + FN)
 
 ---
 
-## Visualizations
+## **Visualizations**
 
 ```{r plot-predictions, fig.height=6, fig.width=10}
 # Predicted probability distributions
@@ -1176,7 +1106,7 @@ if (nrow(m_predictors_plot) > 0) {
     geom_errorbarh(aes(xmin = Lower_95CI, xmax = Upper_95CI), height = 0.3) +
     geom_vline(xintercept = 1, linetype = "dashed", color = "red", size = 1) +
     scale_x_log10(breaks = c(0.01, 0.1, 1, 10, 100)) +
-    scale_color_manual(values = c("FALSE" = "gray50", "TRUE" = "steelblue"),
+    scale_color_manual(values = c("FALSE" = "gray50", "TRUE" = "gold"),
                        labels = c("p ≥ 0.05", "p < 0.05"),
                        name = "Significance") +
     labs(title = "Methylation Markers: Odds Ratios with 95% Confidence Intervals",
@@ -1200,7 +1130,7 @@ ggplot(cpg_results, aes(x = Beta_Coefficient, y = log10p, color = selected)) +
   geom_point(alpha = 0.4, size = 1) +
   geom_hline(yintercept = bonferroni_threshold, 
              linetype = "dashed", color = "red", size = 1) +
-  scale_color_manual(values = c("gray70", "darkred"),
+  scale_color_manual(values = c("gray70", "darkgreen"),
                      labels = c("Not selected", "Selected for model"),
                      name = "") +
   labs(title = "Volcano Plot: Feature Selection Results",
@@ -1215,7 +1145,7 @@ ggplot(cpg_results, aes(x = Beta_Coefficient, y = log10p, color = selected)) +
 
 ---
 
-# Saving Model for API Deployment
+# **Saving Model for API Deployment**
 
 ```{r save-model}
 # Save the complete model object
@@ -1232,21 +1162,58 @@ print(data.frame(
 # Also save the list of required CpGs
 saveRDS(top_cpgs, file = "selected_cpgs.rds")
 cat("\n✓ Selected CpG list saved as: selected_cpgs.rds\n")
+
+# Extract interpretation table (odds ratios for all predictors)
+coef_summary <- summary(model)$coefficients
+odds_ratios <- exp(coef(model))
+conf_intervals <- exp(confint(model, level = 0.95))
+
+interpretation <- data.frame(
+  Variable = rownames(coef_summary),
+  Coefficient = coef_summary[, "Estimate"],
+  Odds_Ratio = odds_ratios[rownames(coef_summary)],
+  Lower_95CI = conf_intervals[rownames(coef_summary), 1],
+  Upper_95CI = conf_intervals[rownames(coef_summary), 2],
+  P_value = coef_summary[, "Pr(>|z|)"]
+)
+interpretation <- interpretation[interpretation$Variable != "(Intercept)", ]
+
+# Save complete API data
+saveRDS(list(
+  model = model,
+  top_cpgs = top_cpgs,
+  interpretation = interpretation,
+  beta_to_m = beta_to_m,
+  metrics = list(
+    train_accuracy = train_accuracy,
+    test_accuracy = test_accuracy,
+    train_sensitivity = train_sensitivity,
+    test_sensitivity = test_sensitivity,
+    train_specificity = train_specificity,
+    test_specificity = test_specificity,
+    train_ppv = train_ppv,
+    test_ppv = test_ppv,
+    train_npv = train_npv,
+    test_npv = test_npv,
+    train_confusion = train_confusion,
+    test_confusion = test_confusion
+  )
+), "alzheimers_model_api.rds")
 ```
 
 
-#### To load the model in API:
+## **To load the model in API:**
 cat("  model <- readRDS('alzheimers_model.rds')\n\n")
 
 
-#### Model Object Contains
+### **Model Object Contains**
 
 * Fitted coefficients
 * Variable names and structure
 * Model formula
 * All information required for prediction
 
-#### Required Inputs for API Predictions
+### **Required Inputs for API Predictions**
 
 To generate predictions, the API must be provided with:
 
@@ -1259,11 +1226,11 @@ To generate predictions, the API must be provided with:
 
 ---
 
-# Discussion
+# **Discussion**
 
-## Key Findings
+## **Key Findings**
 
-### 1. Feature Selection Results
+### **Feature Selection Results**
 
 - **Tested**: `r nrow(cpg_results)` CpG sites genome-wide
 - **Bonferroni significant**: `r n_sig_bonf` sites
@@ -1271,7 +1238,7 @@ To generate predictions, the API must be provided with:
 
 The selected CpG sites show methylation changes associated with AD progression, independent of age, sex, cell type, and brain region.
 
-### 2. Model Performance
+### **Model Performance**
 
 **Test set results** (most important for evaluating generalization):
 
@@ -1281,89 +1248,68 @@ The selected CpG sites show methylation changes associated with AD progression, 
 
 The model shows `r if(train_accuracy - test_accuracy > 0.10) "signs of overfitting" else "good generalization"` from training to test data.
 
-### 3. Risk Factors Identified
+### **Risk Factors Identified**
 
 The logistic regression identified several methylation markers that significantly contribute to AD risk, after controlling for demographic factors. See the coefficient interpretation section for details.
 
 ---
 
-## Strengths
+## **Limitations**
 
-1. **Rigorous feature selection**: Covariate-controlled linear modeling
-2. **Conservative correction**: Bonferroni ensures high confidence
-3. **Proper validation**: Train/test split for unbiased evaluation
-4. **Comprehensive covariates**: Controls for confounding factors
-5. **Statistical best practices**: M-values, sample size considerations
-
----
-
-## Limitations
-
-### 1. Sample Size
-
-- Limited to ~190 samples
-- Restricts number of predictors we can include
-- May miss weaker but true associations
-
-### 2. Post-Mortem Tissue
+### **Post-Mortem Tissue**
 
 - Brain tissue collected after death
 - Cannot use for early diagnosis
 - Retrospective analysis only
 
-### 3. Generalization Concerns
+### **Generalization Concerns**
 
 - Single cohort from one study
 - Specific brain regions only
 - Need validation in independent datasets
 
-### 4. Clinical Applicability
-
-- Requires brain tissue (not practical for screening)
-- Could inform biomarker discovery in blood/CSF
-- Provides mechanistic insights for drug targets
-
 
 ---
 
-# Conclusions
+# **Conclusions**
 
-This project successfully developed a logistic regression model for Alzheimer's Disease prediction using DNA methylation markers from brain tissue.
+With this project we successfully developed a logistic regression model for Alzheimer's Disease prediction using DNA methylation markers from brain tissue using the GSE66351 dataset.
 
-**Key achievements:**
+**Main achievements:**
 
-1. ✓ Identified methylation changes associated with AD progression
-2. ✓ Controlled for demographic and technical confounders
-3. ✓ Applied stringent multiple testing correction (Bonferroni)
-4. ✓ Validated model on independent test set
-5. ✓ Saved model for API deployment
+1. Identified methylation changes associated with AD progression
+2. Controlled for demographic and technical confounders
+3. Applied stringent multiple testing correction (Bonferroni)
+4. Validated model on independent test set
+5. Saved model for API deployment
 
-**Main takeaways:**
+**Our main takeaways are that:**
 
 - DNA methylation patterns differ between AD and control brains
 - These differences persist after controlling for age, sex, cell type, and region
 - A subset of CpG sites can predict AD status with reasonable accuracy
-- Model is ready for deployment via API for further testing
-
-**Clinical relevance:**
-
-While this model uses post-mortem brain tissue (limiting immediate clinical use), it:
-
-- Identifies potential therapeutic targets
-- Suggests biomarkers for blood-based tests
-- Improves our understanding of AD epigenetics
-- Provides foundation for future diagnostic tools
+- While this model uses post-mortem brain tissue (limiting immediate clinical use), it is able to identify potential therapeutic targets, suggest biomarkers for blood-based tests. This improves our understanding of AD epigenetics and provides foundation for future diagnostic tools
 
 ---
 
-# References
+# **References**
 
-1. Lunnon K, et al. (2014). Methylomic profiling implicates cortical deregulation of ANK1 in Alzheimer's disease. *Nature Neuroscience*, 17(5), 669-677.
+1. https://pmc.ncbi.nlm.nih.gov/articles/PMC8397623/
 
-2. Du P, et al. (2010). Comparison of Beta-value and M-value methods for quantifying methylation levels by microarray analysis. *BMC Bioinformatics*, 11, 587.
+2. https://www.nature.com/articles/npp2012112
 
-3. Benjamini Y & Hochberg Y (1995). Controlling the false discovery rate: a practical and powerful approach to multiple testing. *Journal of the Royal Statistical Society*, 57(1), 289-300.
+3. https://www.sciencedirect.com/science/article/pii/S2667242125000405
 
-4. Braak H & Braak E (1991). Neuropathological stageing of Alzheimer-related changes. *Acta Neuropathologica*, 82(4), 239-259.
+4. https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE66351
 
-5. Pidsley R, et al. (2013). A data-driven approach to preprocessing Illumina 450K methylation array data. *BMC Genomics*, 14, 293.
+5. https://pmc.ncbi.nlm.nih.gov/articles/PMC3012676/
+
+6. https://life-epigenetics-methylprep.readthedocs-hosted.com/en/latest/docs/introduction/introduction.html
+
+7. https://link.springer.com/article/10.1186/1471-2105-11-587
+
+8. https://pmc.ncbi.nlm.nih.gov/articles/PMC5913606/#:~:text=Modelling%20approaches-,EWAS,i%20j%20+%20%CE%B5%20i%20j%20%2C
+
+9. https://www.publichealth.columbia.edu/research/population-health-methods/false-discovery-rate
+
+10. https://onlinelibrary.wiley.com/doi/10.1111/opo.12131

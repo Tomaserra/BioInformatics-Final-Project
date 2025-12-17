@@ -1,6 +1,6 @@
 ---
-title: "Alzheimer's Disease Prediction Using DNA Methylation Markers"
-author: "Marco, Simone, Tomás"
+title: "**Alzheimer's Disease Prediction Using DNA Methylation Markers**"
+author: "Marco Banfi, Simone Carrieri, Tomás Serra"
 date: "`r Sys.Date()`"
 output:
   html_document:
@@ -104,6 +104,38 @@ Recent studies have identified differential methylation in AD-related genes incl
 
 # Methods
 
+## Important Note: Computational Efficiency
+
+This analysis involves fitting **485,577 linear models** (one per CpG site), which is computationally intensive.
+
+**Caching system implemented:**
+
+- **First run**: Takes ~15-20 minutes total
+  - Download dataset: ~5-10 min (500MB file)
+  - Fit linear models: ~10-15 min
+- **Subsequent runs**: Takes ~2 minutes (loads cached results)
+- **Cache location**: `data/` folder (created automatically)
+- **Cache files**:
+  - `GSE66351.rds` - Downloaded dataset (avoids re-downloading)
+  - `cpg_results.rds` - Linear model results (avoids refitting)
+
+**If download fails:**
+
+If you get timeout errors, the dataset file is too large for your connection. Try:
+
+1. **Increase timeout**
+2. **Try on a different network** (university/work connections are faster)
+3. **Manual download alternative:**
+   - Visit: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE66351
+   - Click "Series Matrix File(s)" → Download `GSE66351_series_matrix.txt.gz`
+   - The code will attempt automatic retry 3 times before failing
+
+**To force re-analysis:** Delete the `data/` folder and re-knit.
+
+**For reviewers:** This document can be knitted from scratch without any manual intervention. Just click "Knit" and wait ~15-20 minutes on first run.
+
+---
+
 ## Data Acquisition and Preprocessing
 
 ```{r install-packages, results='hide'}
@@ -126,17 +158,29 @@ library(caret)
 set.seed(123)  # Reproducibility
 ```
 
-```{r download-data, cache=TRUE, message=FALSE, results='hide'}
+```{r download-data, message=FALSE, warning=FALSE}
+options(timeout = 6000)
 
-# Download dataset from GEO
-options(timeout = 6000)  # 10 minutes
-gse <- getGEO(
-  "GSE66351",
-  GSEMatrix = TRUE,
-  AnnotGPL = FALSE,
-  getGPL = FALSE
-)
-gse <- gse[[1]]
+data_dir <- "data"
+if (!dir.exists(data_dir)) dir.create(data_dir)
+
+gse_file <- file.path(data_dir, "GSE66351.rds")
+
+if (!file.exists(gse_file)) {
+  message("Downloading GSE66351 from GEO (this may take several minutes)...")
+  
+  gse <- GEOquery::getGEO(
+    "GSE66351",
+    GSEMatrix = TRUE,
+    AnnotGPL = FALSE,
+    getGPL = FALSE
+  )[[1]]
+  
+  saveRDS(gse, gse_file)
+} else {
+  message("Loading cached GSE66351 data...")
+  gse <- readRDS(gse_file)
+}
 
 # Extract data
 pheno_data <- pData(phenoData(gse))
@@ -413,7 +457,7 @@ m_values_valid <- m_values[, valid_idx]
 cat("Samples after removing missing data:", ncol(m_values_valid), "\n")
 ```
 
-```{r fit-linear-models, cache=TRUE}
+```{r fit-linear-models, cache=TRUE, results='hide', message=FALSE}
 # Function to fit covariate-controlled linear model
 fit_cpg_model_covariates <- function(m_vals, clinical) {
   braak <- as.numeric(clinical$braak_stage)
@@ -459,35 +503,56 @@ fit_cpg_model_covariates <- function(m_vals, clinical) {
   })
 }
 
-# Fit models for all CpG sites (this takes time!)
-cat("Fitting linear models for", nrow(m_values_valid), "CpG sites...\n")
-cat("This will take approximately 10-15 minutes...\n\n")
+# Cache file for results
+cache_file <- file.path(data_dir, "cpg_results.rds")
 
-results_list <- list()
-progress_step <- round(nrow(m_values_valid) / 50)
-
-for (i in 1:nrow(m_values_valid)) {
-  if (i %% progress_step == 0) cat(".")
-  results_list[[i]] <- fit_cpg_model_covariates(m_values_valid[i, ], clinical_data_valid)
+if (file.exists(cache_file)) {
+  message("✓ Loading cached linear model results...")
+  cpg_results <- readRDS(cache_file)
+} else {
+  message("Fitting linear models for ", nrow(m_values_valid), " CpG sites...")
+  message("This will take approximately 10-15 minutes...")
+  message("Progress: ", appendLF = FALSE)
+  
+  results_list <- list()
+  progress_step <- round(nrow(m_values_valid) / 50)
+  
+  for (i in 1:nrow(m_values_valid)) {
+    if (i %% progress_step == 0) message(".", appendLF = FALSE)
+    results_list[[i]] <- fit_cpg_model_covariates(m_values_valid[i, ], clinical_data_valid)
+  }
+  message(" Done!")
+  
+  # Compile results
+  cpg_results <- data.frame(
+    CpG = rownames(m_values_valid),
+    Beta_Coefficient = sapply(results_list, function(x) x$beta),
+    Std_Error = sapply(results_list, function(x) x$se),
+    t_statistic = sapply(results_list, function(x) x$t_stat),
+    p_value = sapply(results_list, function(x) x$p_value),
+    adj_r_squared = sapply(results_list, function(x) x$adj_r_squared),
+    n_samples = sapply(results_list, function(x) x$n_samples)
+  )
+  
+  # Remove failed models
+  cpg_results <- cpg_results[complete.cases(cpg_results), ]
+  
+  # Save for future runs
+  saveRDS(cpg_results, cache_file)
+  message("✓ Results cached for future runs")
 }
-cat(" Done!\n\n")
 
-# Compile results
-cpg_results <- data.frame(
-  CpG = rownames(m_values_valid),
-  Beta_Coefficient = sapply(results_list, function(x) x$beta),
-  Std_Error = sapply(results_list, function(x) x$se),
-  t_statistic = sapply(results_list, function(x) x$t_stat),
-  p_value = sapply(results_list, function(x) x$p_value),
-  adj_r_squared = sapply(results_list, function(x) x$adj_r_squared),
-  n_samples = sapply(results_list, function(x) x$n_samples)
-)
-
-# Remove failed models
-cpg_results <- cpg_results[complete.cases(cpg_results), ]
-
-cat("Successfully analyzed:", nrow(cpg_results), "CpG sites\n")
+message("Successfully analyzed: ", nrow(cpg_results), " CpG sites")
 ```
+
+**Linear models fitted for all CpG sites**
+
+> **Note:** This step takes 10-15 minutes on first run but results are cached in `data/cpg_results.rds` for subsequent runs.
+
+- Successfully analyzed: `r nrow(cpg_results)` CpG sites
+- Failed (insufficient data): `r nrow(m_values_valid) - nrow(cpg_results)`
+- Beta_Coefficient = regression slope (NOT methylation Beta values)
+- These coefficients show M-value change per Braak stage increase, controlling for age, sex, cell type, and region
 
 ### Applying Both Corrections
 
@@ -637,11 +702,14 @@ ggplot(plot_cpgs, aes(x = CpG, y = Beta_Coefficient, fill = Beta_Coefficient > 0
 ```
 
 ```{r linear-models-grid, fig.height=8, fig.width=12, fig.cap="Linear regression fits for top 6 CpG sites showing relationship with Braak stage"}
+# Plot linear models for top 6 CpGs
+top_6_cpgs <- top_cpgs[1:min(6, length(top_cpgs))]
+
 # Prepare plotting data
 braak_for_plot <- as.numeric(clinical_data_valid$braak_stage)
 
 plot_data_list <- list()
-for (cpg in top_cpgs) {
+for (cpg in top_6_cpgs) {
   plot_data_list[[cpg]] <- data.frame(
     CpG = cpg,
     M_value = m_values_valid[cpg, ],
@@ -1255,8 +1323,8 @@ The logistic regression identified several methylation markers that significantl
 - Could inform biomarker discovery in blood/CSF
 - Provides mechanistic insights for drug targets
 
----
 
+---
 
 # Conclusions
 

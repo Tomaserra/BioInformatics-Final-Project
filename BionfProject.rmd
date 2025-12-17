@@ -243,7 +243,7 @@ $$M = \log_2\left(\frac{\beta}{1-\beta}\right)$$
 - **Better statistical properties**: More appropriate for linear modeling
 - **Interpretable**: M-value differences represent log₂ fold-changes
 
-**Interpretation: [7]**
+**Interpretation: [5]**
 
 - M = 0: Equal methylated/unmethylated (β = 0.5)
 - M > 0: More methylated than unmethylated
@@ -331,7 +331,7 @@ Where:
 - More sensitive than binary AD/Control comparison
 - Captures dose-response relationship
 
-**2. Established in epigenome-wide association studies (EWAS) [8]**
+**2. Established in epigenome-wide association studies (EWAS) [7]**
 
 - Standard practice in the field
 - Similar to GWAS (genome-wide association studies)
@@ -385,14 +385,14 @@ $$481,868 \times 0.05 = 24, 093 \text{ false positives!}$$
 
 ### **Two Correction Methods**
 
-**1. False Discovery Rate (FDR) [9]**
+**1. False Discovery Rate (FDR) [8]**
 
 - Controls the **proportion** of false discoveries among rejected hypotheses
 - FDR < 0.05 means < 5% of significant findings are false positives
 - **Less conservative**, higher power
 - Standard in genomics
 
-**2. Bonferroni Correction [10] **
+**2. Bonferroni Correction [9] **
 
 - Controls **family-wise error rate** (FWER)
 - Probability of making ANY false positive ≤ α
@@ -537,12 +537,12 @@ cpg_results_sorted_fdr <- cpg_results[order(cpg_results$p_fdr), ]
 cpg_results_sorted_bonf <- cpg_results[order(cpg_results$p_bonferroni), ]
 
 knitr::kable(cpg_results_sorted_fdr[1:10, c("CpG", "Beta_Coefficient", "p_value", "p_fdr")],
-             digits = c(0, 4, -4, -4),
+             digits = c(0, 4, 12, 6),
              caption = "Top 10 CpGs by FDR",
              row.names = FALSE)
 
 knitr::kable(cpg_results_sorted_bonf[1:10, c("CpG", "Beta_Coefficient", "p_value", "p_bonferroni")],
-             digits = c(0, 4, -4, -4),
+             digits = c(0, 4, 12, 6),
              caption = "Top 10 CpGs by Bonferroni",
              row.names = FALSE)
 ```
@@ -600,7 +600,7 @@ selected_cpg_details$Direction <- ifelse(selected_cpg_details$Beta_Coefficient >
 knitr::kable(selected_cpg_details[1:min(10, n_to_select), 
                                   c("CpG", "Beta_Coefficient", "p_value", 
                                     "p_bonferroni", "Direction")],
-             digits = c(0, 4, -4, -4, 0),
+             digits = c(0, 4, 12, 6, 0),
              caption = "Top Selected CpG Sites",
              row.names = FALSE)
 ```
@@ -643,7 +643,7 @@ plot_cpgs$CpG <- factor(plot_cpgs$CpG,
 ggplot(plot_cpgs, aes(x = CpG, y = Beta_Coefficient, fill = Beta_Coefficient > 0)) +
   geom_bar(stat = "identity") +
   coord_flip() +
-  scale_fill_manual(values = c("TRUE" = "darkgreen", "FALSE" = "tomato"),
+  scale_fill_manual(values = c("TRUE" = "lightblue", "FALSE" = "orange"),
                     labels = c("Decreases with progression", 
                                "Increases with progression")) +
   labs(title = "Selected CpG Sites: Effect on Methylation",
@@ -678,7 +678,7 @@ plot_data <- plot_data[complete.cases(plot_data), ]
 
 ggplot(plot_data, aes(x = Braak_stage, y = M_value)) +
   geom_point(alpha = 0.6, size = 2, color = "gray40") +
-  geom_smooth(method = "lm", se = TRUE, color = "darkcyan", fill = "#ff7f0e", 
+  geom_smooth(method = "lm", se = TRUE, color = "red", fill = "#ff7f0e", 
               alpha = 0.2, linewidth = 1.2) +
   facet_wrap(~CpG, scales = "free_y", ncol = 3) +
   scale_x_continuous(breaks = 0:6) +
@@ -1106,7 +1106,7 @@ if (nrow(m_predictors_plot) > 0) {
     geom_errorbarh(aes(xmin = Lower_95CI, xmax = Upper_95CI), height = 0.3) +
     geom_vline(xintercept = 1, linetype = "dashed", color = "red", size = 1) +
     scale_x_log10(breaks = c(0.01, 0.1, 1, 10, 100)) +
-    scale_color_manual(values = c("FALSE" = "gray50", "TRUE" = "gold"),
+    scale_color_manual(values = c("FALSE" = "gray50", "TRUE" = "orange"),
                        labels = c("p ≥ 0.05", "p < 0.05"),
                        name = "Significance") +
     labs(title = "Methylation Markers: Odds Ratios with 95% Confidence Intervals",
@@ -1294,22 +1294,20 @@ With this project we successfully developed a logistic regression model for Alzh
 
 # **References**
 
-1. https://pmc.ncbi.nlm.nih.gov/articles/PMC8397623/
+1. König, T. and Stögmann, E. (2021). Genetics of Alzheimer’s disease. Wiener Medizinische Wochenschrift, 171(11-12). doi:https://doi.org/10.1007/s10354-021-00819-9.
 
-2. https://www.nature.com/articles/npp2012112
+2. Moore, L.D., Le, T. and Fan, G. (2012). DNA Methylation and Its Basic Function. Neuropsychopharmacology, 38(1), pp.23–38. doi:https://doi.org/10.1038/npp.2012.112. 
 
-3. https://www.sciencedirect.com/science/article/pii/S2667242125000405
+3. Gan, Y., Sun, J., Yang, D., Fang, C., Zhou, Z. and Yin, J. (2025). Exploration and validation of biomarkers for Alzheimer’s disease based on GEO database. IBRO Neuroscience Reports. [online] doi:https://doi.org/10.1016/j.ibneur.2025.03.006.
 
-4. https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE66351
+4. Nih.gov. (2024). GEO Accession viewer. [online] Available at: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE66351 [Accessed 17 Dec. 2025].
 
-5. https://pmc.ncbi.nlm.nih.gov/articles/PMC3012676/
+5. Du, P., Zhang, X., Huang, C.-C., Jafari, N., Kibbe, W.A., Hou, L. and Lin, S.M. (2010). Comparison of Beta-value and M-value methods for quantifying methylation levels by microarray analysis. BMC Bioinformatics, 11(1). doi:https://doi.org/10.1186/1471-2105-11-587.
 
-6. https://life-epigenetics-methylprep.readthedocs-hosted.com/en/latest/docs/introduction/introduction.html
+6. life-epigenetics-methylprep.readthedocs-hosted.com. (n.d.). Introduction to DNA Methylation Analysis — methylprep 1.6.5 documentation. [online] Available at: https://life-epigenetics-methylprep.readthedocs-hosted.com/en/latest/docs/introduction/introduction.html.
 
-7. https://link.springer.com/article/10.1186/1471-2105-11-587
+7. Staley, J.R., Suderman, M., Simpkin, A.J., Gaunt, T.R., Heron, J., Relton, C.L. and Tilling, K. (2018). Longitudinal analysis strategies for modelling epigenetic trajectories. International Journal of Epidemiology, 47(2), pp.516–525. doi:https://doi.org/10.1093/ije/dyy012.
 
-8. https://pmc.ncbi.nlm.nih.gov/articles/PMC5913606/#:~:text=Modelling%20approaches-,EWAS,i%20j%20+%20%CE%B5%20i%20j%20%2C
+8. www.publichealth.columbia.edu. (n.d.). False Discovery Rate | Columbia Public Health. [online] Available at: https://www.publichealth.columbia.edu/research/population-health-methods/false-discovery-rate.
 
-9. https://www.publichealth.columbia.edu/research/population-health-methods/false-discovery-rate
-
-10. https://onlinelibrary.wiley.com/doi/10.1111/opo.12131
+9. Armstrong, R.A. (2014). When to use the Bonferroni correction. Ophthalmic and Physiological Optics, [online] 34(5), pp.502–508. doi:https://doi.org/10.1111/opo.12131.

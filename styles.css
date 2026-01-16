@@ -1,0 +1,137 @@
+/* styles.css */
+
+/* 1. COVER SLIDE STYLING */
+#title-slide h1.title {
+  color: white !important;
+  text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.3); 
+  font-size: 2.5em !important;
+}
+
+#title-slide p, 
+#title-slide .quarto-title-author-name,
+#title-slide .date {
+  color: #333333 !important;
+}
+
+/* 2. SECTION SLIDE STYLING - Yellow background with white text */
+.reveal .slides section.section-slide {
+  background-color: #F2C94C !important;
+}
+
+.reveal .slides section.section-slide h1,
+.reveal .slides section.section-slide h2 {
+  color: white !important;
+  text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.3);
+  margin-top: 25%;
+  font-size: 3em !important;
+}
+
+/* 3. CONTENT SLIDES - Better visual hierarchy */
+.reveal h2 {
+  color: #F2C94C;
+  border-bottom: 3px solid #F2C94C;
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
+
+.reveal h3 {
+  color: #666;
+  font-size: 1.3em;
+}
+
+/* 4. IMPROVED TABLES */
+.reveal table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.85em;
+}
+
+.reveal thead {
+  background-color: #F2C94C;
+  color: white;
+}
+
+.reveal tbody tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.reveal td, .reveal th {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+}
+
+/* 5. HIGHLIGHT BOXES */
+.highlight-box {
+  background-color: #FFF9E6;
+  border-left: 4px solid #F2C94C;
+  padding: 15px;
+  margin: 15px 0;
+  border-radius: 5px;
+}
+
+.warning-box {
+  background-color: #FFF0F0;
+  border-left: 4px solid #FF6B6B;
+  padding: 15px;
+  margin: 15px 0;
+  border-radius: 5px;
+}
+
+.success-box {
+  background-color: #F0FFF4;
+  border-left: 4px solid #51CF66;
+  padding: 15px;
+  margin: 15px 0;
+  border-radius: 5px;
+}
+
+/* 6. SLIDE NUMBERS */
+.reveal .slide-number {
+  color: #666;
+  background-color: rgba(242, 201, 76, 0.2);
+  padding: 5px 10px;
+  border-radius: 3px;
+}
+
+/* 7. CODE BLOCKS */
+.reveal pre {
+  background-color: #f5f5f5;
+  border-left: 4px solid #F2C94C;
+  padding: 15px;
+  border-radius: 5px;
+}
+
+/* 8. MERMAID DIAGRAMS */
+.mermaid {
+  background-color: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 9. COLUMNS SPACING */
+.reveal .columns {
+  gap: 20px;
+}
+
+/* 10. METRICS DISPLAY */
+.metric {
+  text-align: center;
+  padding: 15px;
+  background: linear-gradient(135deg, #FFF9E6 0%, #FFFFFF 100%);
+  border-radius: 8px;
+  margin: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.metric-value {
+  font-size: 2em;
+  font-weight: bold;
+  color: #F2C94C;
+}
+
+.metric-label {
+  font-size: 0.9em;
+  color: #666;
+  margin-top: 5px;
+}

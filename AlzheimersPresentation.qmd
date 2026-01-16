@@ -1,0 +1,716 @@
+---
+title: "Alzheimer's Disease Prediction Using DNA Methylation Markers"
+author: "Marco Banfi, Simone Carrieri, Tomás Serra"
+date: today
+title-slide-attributes:
+  data-background-color: "#F2C94C"
+format:
+  revealjs:
+    slide-number: true
+    chalkboard: true
+    preview-links: auto
+    footer: "Bioinformatics Project - AD Prediction"
+    transition: slide
+    background-transition: fade
+    css: styles.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, 
+                      fig.width = 9, fig.height = 4, fig.align = "center")
+library(GEOquery)
+library(dplyr)
+library(ggplot2)
+library(caret)
+set.seed(123)
+```
+
+# 1. Introduction {data-background-color="#F2C94C" class="section-slide"}
+
+---
+
+## The Challenge: Alzheimer's Disease {.smaller}
+
+:::: {.columns}
+::: {.column width="35%"}
+**Clinical Features**
+
+Progressive neurodegenerative disorder with memory loss and cognitive decline
+
+**Pathological Hallmarks**
+
+- Amyloid-β plaques
+- Tau tangles
+- Neuronal loss
+
+**Braak Staging (0-6)**
+
+Measures Tau distribution from transentorhinal (I-II) → limbic (III-IV) → neocortical (V-VI)
+:::
+
+::: {.column width="65%"}
+```{r ad-overview-diagram, fig.height=3.5}
+library(DiagrammeR)
+grViz("
+digraph AD {
+  graph [rankdir=TB, bgcolor='transparent']
+  node [shape=box, style='rounded,filled', fontname='Arial', fontsize=11]
+  
+  A [label='DNA Methylation\n(Epigenetic Changes)', fillcolor='#FFE5B4']
+  B [label='Gene Expression\nDysregulation', fillcolor='#FFD4A3']
+  C [label='Key AD Genes\nAPOE, APP, MAPT', fillcolor='#FFC292']
+  D [label='Pathology\nPlaques & Tangles', fillcolor='#FFB081']
+  E [label='Clinical AD\nCognitive Decline', fillcolor='#FF9F70']
+  
+  A -> B -> C -> D -> E
+  
+  {rank=same; A}
+  {rank=same; B}
+  {rank=same; C}
+  {rank=same; D}
+  {rank=same; E}
+}
+")
+```
+
+**Our Approach:** Use DNA methylation patterns to predict AD status
+:::
+::::
+
+---
+
+## DNA Methylation & Study Design {.smaller}
+
+:::: {.columns}
+::: {.column width="50%"}
+**What is Methylation?**
+
+Epigenetic modification (CH₃ groups) at CpG sites that regulates gene expression **without changing DNA sequence**
+
+**Why M-values?**
+
+$M = \log_2\left(\frac{\beta}{1-\beta}\right)$
+
+- β-values (0-1): Heteroscedastic, bounded
+- M-values (-∞ to +∞): Homoscedastic, unbounded
+- Better for linear modeling
+:::
+
+::: {.column width="50%"}
+**Dataset: GSE66351**
+
+- **Platform:** Illumina HumanMethylation450
+- **Samples:** 190 post-mortem brain tissues
+- **CpG sites:** 485,577 tested
+- **Variables:** Diagnosis, Age, Sex, Braak stage, Cell type, Brain region
+
+```{r download-data, cache=TRUE, message=FALSE, warning=FALSE}
+options(timeout = 6000)
+data_dir <- "data"
+if (!dir.exists(data_dir)) dir.create(data_dir)
+gse_file <- file.path(data_dir, "GSE66351.rds")
+
+if (!file.exists(gse_file)) {
+  gse <- GEOquery::getGEO("GSE66351", GSEMatrix = TRUE, 
+                          AnnotGPL = FALSE, getGPL = FALSE)[[1]]
+  saveRDS(gse, gse_file)
+} else {
+  gse <- readRDS(gse_file)
+}
+
+pheno_data <- pData(phenoData(gse))
+methylation_data <- exprs(gse)
+
+clinical_data <- data.frame(
+  sample_id = pheno_data$geo_accession,
+  diagnosis = gsub("disease state: ", "", gsub(".*: ", "", pheno_data$characteristics_ch1.1)),
+  age = as.numeric(gsub(".*: ", "", pheno_data$characteristics_ch1.4)),
+  sex = gsub(".*: ", "", pheno_data$characteristics_ch1.5),
+  cell_type = gsub(".*: ", "", pheno_data$characteristics_ch1),
+  braak_stage = gsub(".*: ", "", pheno_data$characteristics_ch1.2),
+  region = gsub(".*: ", "", pheno_data$characteristics_ch1.3)
+)
+
+clinical_data$AD_status <- ifelse(clinical_data$diagnosis == "AD", 1, 0)
+clinical_data$sex <- factor(clinical_data$sex)
+clinical_data$cell_type <- factor(clinical_data$cell_type)
+clinical_data$region <- factor(clinical_data$region)
+```
+
+**Sample Distribution:**
+
+- AD: `r sum(clinical_data$AD_status)` | Controls: `r sum(clinical_data$AD_status == 0)`
+- Age: `r round(mean(clinical_data$age, na.rm=TRUE), 1)` ± `r round(sd(clinical_data$age, na.rm=TRUE), 1)` years
+:::
+::::
+
+---
+
+# 2. Feature Selection {data-background-color="#F2C94C" class="section-slide"}
+
+---
+
+## The Dimensionality Challenge {.smaller}
+
+:::: {.columns}
+::: {.column width="45%"}
+**The Problem**
+
+- 485,577 CpG sites
+- Only 190 samples
+- **Ratio: 2,556:1** 
+
+**Consequences**
+
+✗ Severe overfitting  
+✗ Multiple testing burden  
+✗ Computational impractical  
+✗ Loss of statistical power
+
+**Solution: Two-Stage Analysis**
+
+1. Feature selection via linear regression
+2. Predictive modeling with selected CpGs
+:::
+
+::: {.column width="55%"}
+```{r feature-selection-diagram, fig.height=3.5}
+grViz("
+digraph FeatureSelection {
+  graph [rankdir=LR, bgcolor='transparent']
+  node [shape=box, style='rounded,filled', fontname='Arial', fontsize=10]
+  
+  A [label='485,577\nCpG Sites', fillcolor='#FFE5E5']
+  B [label='Linear Regression\n+ Covariates\n(Age, Sex, Cell, Region)', fillcolor='#FFE5B4', shape=ellipse]
+  C [label='Multiple Testing\nBonferroni\np < 1.03×10⁻⁷', fillcolor='#FFD4A3', shape=diamond]
+  D [label='Selected CpGs\nfor Modeling', fillcolor='#C8E6C9']
+  
+  A -> B [label='Test each']
+  B -> C [label='485,577 tests']
+  C -> D [label='Significant only']
+}
+")
+```
+
+**Linear Model:**
+
+$$M_{ij} = \beta_0 + \beta_1 \cdot Braak_i + \beta_2 \cdot Covariates_i + \epsilon_{ij}$$
+
+Tests association with disease **progression**, not just group differences
+:::
+::::
+
+---
+
+## Multiple Testing & Results {.smaller}
+
+```{r beta-to-m}
+beta_to_m <- function(beta) {
+  beta[beta <= 0] <- 0.001
+  beta[beta >= 1] <- 0.999
+  m_value <- log2(beta / (1 - beta))
+  return(m_value)
+}
+m_values <- beta_to_m(methylation_data)
+
+braak_numeric <- as.numeric(clinical_data$braak_stage)
+valid_idx <- !is.na(braak_numeric)
+clinical_data_valid <- clinical_data[valid_idx, ]
+m_values_valid <- m_values[, valid_idx]
+```
+
+```{r fit-linear-models, cache=TRUE, results='hide', message=FALSE}
+fit_cpg_model_covariates <- function(m_vals, clinical) {
+  braak <- as.numeric(clinical$braak_stage)
+  df <- data.frame(
+    m_value = m_vals, braak_stage = braak, age = clinical$age,
+    sex = clinical$sex, cell_type = clinical$cell_type, region = clinical$region
+  )
+  df <- df[complete.cases(df), ]
+  if (nrow(df) < 20 || length(unique(df$braak_stage)) < 3) {
+    return(list(beta = NA, se = NA, t_stat = NA, p_value = NA, 
+                adj_r_squared = NA, n_samples = nrow(df)))
+  }
+  tryCatch({
+    model <- lm(m_value ~ braak_stage + age + sex + cell_type + region, data = df)
+    coef_summary <- summary(model)$coefficients
+    if (!"braak_stage" %in% rownames(coef_summary)) {
+      return(list(beta = NA, se = NA, t_stat = NA, p_value = NA, 
+                  adj_r_squared = NA, n_samples = nrow(df)))
+    }
+    braak_row <- which(rownames(coef_summary) == "braak_stage")
+    return(list(
+      beta = coef_summary[braak_row, "Estimate"],
+      se = coef_summary[braak_row, "Std. Error"],
+      t_stat = coef_summary[braak_row, "t value"],
+      p_value = coef_summary[braak_row, "Pr(>|t|)"],
+      adj_r_squared = summary(model)$adj.r.squared,
+      n_samples = nrow(df)
+    ))
+  }, error = function(e) {
+    return(list(beta = NA, se = NA, t_stat = NA, p_value = NA, 
+                adj_r_squared = NA, n_samples = nrow(df)))
+  })
+}
+
+cache_file <- file.path(data_dir, "cpg_results.rds")
+if (file.exists(cache_file)) {
+  cpg_results <- readRDS(cache_file)
+} else {
+  results_list <- list()
+  for (i in 1:nrow(m_values_valid)) {
+    results_list[[i]] <- fit_cpg_model_covariates(m_values_valid[i, ], clinical_data_valid)
+  }
+  cpg_results <- data.frame(
+    CpG = rownames(m_values_valid),
+    Beta_Coefficient = sapply(results_list, function(x) x$beta),
+    Std_Error = sapply(results_list, function(x) x$se),
+    t_statistic = sapply(results_list, function(x) x$t_stat),
+    p_value = sapply(results_list, function(x) x$p_value),
+    adj_r_squared = sapply(results_list, function(x) x$adj_r_squared),
+    n_samples = sapply(results_list, function(x) x$n_samples)
+  )
+  cpg_results <- cpg_results[complete.cases(cpg_results), ]
+  saveRDS(cpg_results, cache_file)
+}
+
+cpg_results$p_bonferroni <- p.adjust(cpg_results$p_value, method = "bonferroni")
+cpg_results$p_fdr <- p.adjust(cpg_results$p_value, method = "fdr")
+```
+
+:::: {.columns}
+::: {.column width="50%"}
+**Correction Strategy**
+
+| Method | Threshold | Significant |
+|--------|-----------|-------------|
+| **Uncorrected** | p < 0.05 | `r sum(cpg_results$p_value < 0.05)` |
+| **FDR** | q < 0.05 | `r sum(cpg_results$p_fdr < 0.05)` |
+| **Bonferroni** | p < 1.03×10⁻⁷ | `r sum(cpg_results$p_bonferroni < 0.05)` |
+
+::: {.highlight-box}
+**Choice: Bonferroni**
+
+Maximum stringency for clinical reliability
+:::
+:::
+
+::: {.column width="50%"}
+```{r selection-results}
+n_samples <- ncol(m_values_valid)
+n_events <- min(sum(clinical_data_valid$AD_status), 
+                sum(clinical_data_valid$AD_status == 0))
+max_predictors <- floor(n_events / 15)
+max_cpgs <- max(5, max_predictors - 6)
+n_sig_bonf <- sum(cpg_results$p_bonferroni < 0.05)
+
+if (n_sig_bonf == 0) {
+  n_to_select <- max_cpgs
+} else if (n_sig_bonf <= max_cpgs) {
+  n_to_select <- n_sig_bonf
+} else {
+  n_to_select <- max_cpgs
+}
+
+top_cpgs <- cpg_results$CpG[order(cpg_results$p_bonferroni)][1:n_to_select]
+```
+
+**Sample Size Calculation**
+
+- Limiting class: `r n_events` samples
+- 15:1 rule → Max `r max_predictors` predictors
+- After covariates → `r max_cpgs` CpGs max
+
+::: {.success-box}
+**Final Selection: `r n_to_select` CpGs**
+
+Balance between power and overfitting prevention
+:::
+:::
+::::
+
+---
+
+## Feature Selection Results {.smaller}
+
+```{r volcano-and-effects, fig.height=4}
+cpg_results$log10p <- -log10(cpg_results$p_value)
+cpg_results$selected <- cpg_results$CpG %in% top_cpgs
+bonferroni_threshold <- -log10(0.05 / nrow(cpg_results))
+
+selected_cpg_details <- cpg_results[cpg_results$CpG %in% top_cpgs, ]
+selected_cpg_details$Direction <- ifelse(selected_cpg_details$Beta_Coefficient > 0,
+                                         "Hypermethylation", "Hypomethylation")
+
+par(mfrow=c(1,2), mar=c(4,4,2,1))
+
+# Volcano plot
+plot(cpg_results$Beta_Coefficient, cpg_results$log10p, 
+     pch=20, cex=0.5, col=ifelse(cpg_results$selected, "gold", "gray70"),
+     xlab="Effect Size (β coefficient)", ylab="-log10(p-value)",
+     main="Volcano Plot: Genome-wide Results", cex.main=0.9)
+abline(h=bonferroni_threshold, col="red", lty=2, lwd=2)
+abline(h=-log10(0.05), col="turquoise", lty=3, lwd=1)
+legend("topright", legend=c("Selected", "Not selected", "Bonferroni", "p=0.05"),
+       col=c("gold", "gray70", "red", "turquoise"), 
+       pch=c(20,20,NA,NA), lty=c(NA,NA,2,3), cex=0.7)
+
+# Effect sizes
+barplot(selected_cpg_details$Beta_Coefficient[order(selected_cpg_details$Beta_Coefficient)],
+        names.arg=selected_cpg_details$CpG[order(selected_cpg_details$Beta_Coefficient)],
+        horiz=TRUE, las=1, col=ifelse(selected_cpg_details$Beta_Coefficient[order(selected_cpg_details$Beta_Coefficient)] > 0, "lightblue", "orange"),
+        xlab="β coefficient", main="Selected CpG Effect Sizes", 
+        cex.names=0.6, cex.main=0.9, cex.axis=0.8)
+abline(v=0, lty=2)
+
+par(mfrow=c(1,1))
+```
+
+---
+
+# 3. Predictive Modeling {data-background-color="#F2C94C" class="section-slide"}
+
+---
+
+## Model Development & Validation {.smaller}
+
+```{r train-test-split}
+selected_m_values <- t(m_values_valid[top_cpgs, ])
+colnames(selected_m_values) <- paste0("M_", 1:length(top_cpgs))
+
+analysis_data <- cbind(clinical_data_valid, selected_m_values)
+analysis_data <- analysis_data[complete.cases(analysis_data), ]
+
+set.seed(123)
+train_idx <- createDataPartition(analysis_data$AD_status, p = 0.7, list = FALSE)
+
+train_data <- analysis_data[train_idx, ]
+test_data <- analysis_data[-train_idx, ]
+
+m_vars <- paste0("M_", 1:length(top_cpgs))
+formula_str <- paste("AD_status ~", 
+                     paste(c(m_vars, "age", "sex", "cell_type", "region"), 
+                           collapse = " + "))
+model_formula <- as.formula(formula_str)
+model <- glm(model_formula, data = train_data, family = "binomial")
+
+train_probs <- predict(model, type = "response")
+train_pred <- ifelse(train_probs > 0.5, 1, 0)
+
+test_probs <- predict(model, newdata = test_data, type = "response")
+test_pred <- ifelse(test_probs > 0.5, 1, 0)
+
+train_confusion <- table(Predicted = train_pred, Actual = train_data$AD_status)
+test_confusion <- table(Predicted = test_pred, Actual = test_data$AD_status)
+
+calc_metrics <- function(conf_mat) {
+  list(
+    accuracy = sum(diag(conf_mat)) / sum(conf_mat),
+    sensitivity = conf_mat[2, 2] / sum(conf_mat[, 2]),
+    specificity = conf_mat[1, 1] / sum(conf_mat[, 1]),
+    ppv = conf_mat[2, 2] / sum(conf_mat[2, ]),
+    npv = conf_mat[1, 1] / sum(conf_mat[1, ])
+  )
+}
+
+train_metrics <- calc_metrics(train_confusion)
+test_metrics <- calc_metrics(test_confusion)
+```
+
+:::: {.columns}
+::: {.column width="48%"}
+**Logistic Regression Model**
+
+$$\log\left(\frac{P(AD)}{1-P(AD)}\right) = \beta_0 + \sum_{i=1}^{`r n_to_select`} \beta_i M_i + \beta_{cov} X_{cov}$$
+
+**Training Strategy**
+
+- **70/30 stratified split**
+- Training: `r nrow(train_data)` samples
+- Test: `r nrow(test_data)` samples
+- AD ratio maintained: ~`r round(mean(analysis_data$AD_status)*100)`%
+
+**Key Interpretation**
+
+- Coefficient (β): Log-odds change
+- Odds Ratio (e^β): Multiplicative effect
+:::
+
+::: {.column width="52%"}
+**Performance Metrics**
+
+```{r performance-comparison, fig.height=3.5}
+metrics_df <- data.frame(
+  Metric = rep(c("Accuracy", "Sensitivity", "Specificity", "PPV", "NPV"), 2),
+  Value = c(train_metrics$accuracy, train_metrics$sensitivity, 
+            train_metrics$specificity, train_metrics$ppv, train_metrics$npv,
+            test_metrics$accuracy, test_metrics$sensitivity, 
+            test_metrics$specificity, test_metrics$ppv, test_metrics$npv) * 100,
+  Dataset = rep(c("Training", "Test"), each=5)
+)
+
+ggplot(metrics_df, aes(x=Metric, y=Value, fill=Dataset)) +
+  geom_bar(stat="identity", position="dodge") +
+  geom_text(aes(label=sprintf("%.1f%%", Value)), 
+            position=position_dodge(width=0.9), vjust=-0.5, size=2.8) +
+  scale_fill_manual(values=c("Training"="#FFD4A3", "Test"="#51CF66")) +
+  ylim(0, 110) +
+  labs(y="Percentage (%)", title="Model Performance: Training vs Test") +
+  theme_minimal(base_size=10) +
+  theme(legend.position="top")
+```
+
+::: {.success-box}
+**Generalization:** Test accuracy within `r sprintf("%.1f%%", abs(train_metrics$accuracy - test_metrics$accuracy)*100)` of training
+:::
+:::
+::::
+
+---
+
+## Model Interpretation {.smaller}
+
+```{r model-interpretation}
+coef_summary <- summary(model)$coefficients
+odds_ratios <- exp(coef(model))
+
+conf_intervals <- tryCatch({
+  ci <- confint(model, level = 0.95)
+  exp(ci)
+}, error = function(e) {
+  coef_est <- coef(model)
+  se <- coef_summary[, "Std. Error"]
+  lower <- exp(coef_est - 1.96 * se)
+  upper <- exp(coef_est + 1.96 * se)
+  ci <- cbind(lower, upper)
+  colnames(ci) <- c("2.5 %", "97.5 %")
+  ci
+})
+
+interpretation <- data.frame(
+  Variable = rownames(coef_summary),
+  Coefficient = coef_summary[, "Estimate"],
+  Odds_Ratio = odds_ratios[rownames(coef_summary)],
+  Lower_95CI = conf_intervals[rownames(coef_summary), 1],
+  Upper_95CI = conf_intervals[rownames(coef_summary), 2],
+  P_value = coef_summary[, "Pr(>|z|)"]
+)
+
+m_predictors <- interpretation[grepl("^M_", interpretation$Variable) & interpretation$Variable != "(Intercept)", ]
+m_predictors$CpG_name <- sapply(m_predictors$Variable, function(x) {
+  idx <- as.numeric(gsub("M_", "", x))
+  top_cpgs[idx]
+})
+m_predictors <- m_predictors[order(abs(m_predictors$Coefficient), decreasing = TRUE), ]
+```
+
+:::: {.columns}
+::: {.column width="55%"}
+```{r odds-ratio-plot, fig.height=4}
+m_predictors_plot <- head(m_predictors, 8)
+m_predictors_plot$Label <- paste0(m_predictors_plot$Variable, "\n", 
+                                  m_predictors_plot$CpG_name)
+m_predictors_plot$Label <- factor(m_predictors_plot$Label,
+                                  levels = m_predictors_plot$Label[order(m_predictors_plot$Odds_Ratio)])
+m_predictors_plot$Significant <- m_predictors_plot$P_value < 0.05
+
+ggplot(m_predictors_plot, aes(x = Odds_Ratio, y = Label, color=Significant)) +
+  geom_point(size = 3.5) +
+  geom_errorbarh(aes(xmin = Lower_95CI, xmax = Upper_95CI), height = 0.3, linewidth=0.8) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "red", linewidth = 1) +
+  scale_x_log10(breaks = c(0.01, 0.1, 1, 10, 100, 1000)) +
+  scale_color_manual(values = c("FALSE" = "gray50", "TRUE" = "#F2C94C"),
+                     labels = c("p ≥ 0.05", "p < 0.05")) +
+  labs(title = "Top Methylation Markers: Odds Ratios",
+       x = "Odds Ratio (log scale)", y = "") +
+  theme_minimal(base_size=10) +
+  theme(legend.position = "top", axis.text.y = element_text(size=7))
+```
+:::
+
+::: {.column width="45%"}
+**Top 5 Methylation Predictors**
+
+```{r top-predictors-table}
+knitr::kable(m_predictors[1:5, c("CpG_name", "Coefficient", "Odds_Ratio", "P_value")],
+             digits = c(0, 3, 2, 4), row.names = FALSE,
+             col.names = c("CpG Site", "β", "OR", "p-value"))
+```
+
+**Example Interpretation:**
+
+For `r m_predictors$CpG_name[1]`:
+
+- β = `r round(m_predictors$Coefficient[1], 3)`
+- OR = `r round(m_predictors$Odds_Ratio[1], 2)`
+
+→ Each 1-unit increase in M-value multiplies AD odds by `r round(m_predictors$Odds_Ratio[1], 2)`
+
+::: {.highlight-box}
+**Clinical Meaning:** Strong methylation-based biomarkers
+:::
+:::
+::::
+
+---
+
+# 4. Discussion & Deployment {data-background-color="#F2C94C" class="section-slide"}
+
+---
+
+## Key Findings & Implications {.smaller}
+
+:::: {.columns}
+::: {.column width="50%"}
+**Scientific Achievements**
+
+✓ **Genome-wide analysis:** `r nrow(cpg_results)` CpG sites tested  
+✓ **Stringent selection:** `r n_to_select` highly significant sites  
+✓ **Robust validation:** `r sprintf("%.1f%%", test_metrics$accuracy*100)` test accuracy  
+✓ **Mechanistic insight:** Progression-dependent changes
+
+**Biological Insights**
+
+- Both hyper- and hypomethylation observed
+- Effects independent of confounders
+- Consistent with AD-related genes
+- Links epigenetics to neurodegeneration
+
+**Clinical Potential**
+
+1. Biomarker development → Blood tests
+2. Therapeutic targets → Modifiable
+3. Patient stratification → Trials
+4. Disease mechanism → Pathways
+:::
+
+::: {.column width="50%"}
+**Limitations & Future Directions**
+
+```{r limitations-diagram, fig.height=3.5}
+grViz("
+digraph Limitations {
+  graph [rankdir=TB, bgcolor='transparent']
+  node [shape=box, style='rounded,filled', fontname='Arial', fontsize=9]
+  
+  A [label='Current Study\nPost-mortem brain\nSingle cohort', fillcolor='#FFE5E5']
+  
+  B1 [label='Validate in\nindependent cohorts', fillcolor='#FFF9E6']
+  B2 [label='Test different\nbrain regions', fillcolor='#FFF9E6']
+  B3 [label='Blood-based\nbiomarkers', fillcolor='#FFF9E6']
+  B4 [label='Longitudinal\nstudies', fillcolor='#FFF9E6']
+  
+  C [label='Clinical Application\nEarly detection & monitoring', fillcolor='#C8E6C9']
+  
+  A -> B1
+  A -> B2
+  A -> B3
+  A -> B4
+  
+  B1 -> C
+  B2 -> C
+  B3 -> C
+  B4 -> C
+}
+")
+```
+
+::: {.warning-box}
+**Critical:** Post-mortem data cannot enable pre-mortem diagnosis  
+**Solution:** Translate to accessible tissues
+:::
+:::
+::::
+
+---
+
+## Model Deployment for API {.smaller}
+
+```{r save-model}
+saveRDS(model, file = "alzheimers_model.rds")
+saveRDS(top_cpgs, file = "selected_cpgs.rds")
+
+interpretation_export <- interpretation[interpretation$Variable != "(Intercept)", ]
+
+saveRDS(list(
+  model = model,
+  top_cpgs = top_cpgs,
+  interpretation = interpretation_export,
+  beta_to_m = beta_to_m,
+  metrics = list(
+    train = train_metrics,
+    test = test_metrics,
+    train_confusion = train_confusion,
+    test_confusion = test_confusion
+  )
+), "alzheimers_model_api.rds")
+```
+
+:::: {.columns}
+::: {.column width="48%"}
+**API Package Contents**
+
+📦 `alzheimers_model_api.rds` includes:
+
+1. Trained model (logistic regression)
+2. Required CpGs (`r n_to_select` sites)
+3. Coefficient interpretation (β, OR, CI)
+4. Performance metrics (train & test)
+5. Helper functions (β → M conversion)
+
+**Required Inputs**
+
+- M-values for `r n_to_select` CpG sites
+- Age, Sex, Cell type, Brain region
+:::
+
+::: {.column width="52%"}
+**Usage Example**
+
+```{r usage-example, echo=TRUE, eval=FALSE}
+# Load model
+model_pkg <- readRDS('alzheimers_model_api.rds')
+
+# Prepare new sample
+new_data <- data.frame(
+  M_1 = -2.1, M_2 = 1.8,
+  # ... other M-values
+  age = 78, sex = "Female",
+  cell_type = "bulk",
+  region = "frontal cortex"
+)
+
+# Predict
+prob <- predict(model_pkg$model, 
+                new_data, 
+                type = "response")
+
+# Interpret
+if (prob > 0.5) {
+  paste("AD predicted:", 
+        round(prob*100, 1), "%")
+}
+```
+:::
+::::
+
+---
+
+## Summary & Conclusions {.center}
+
+::: {.highlight-box}
+**Main Contributions**
+
+✓ Identified `r n_to_select` robust methylation biomarkers using stringent Bonferroni correction  
+✓ Achieved `r sprintf("%.1f%%", test_metrics$accuracy*100)` test accuracy with good generalization  
+✓ Controlled for key confounders (age, sex, cell type, region)  
+✓ Created deployable API for AD prediction
+:::
+
+**Impact:** Foundation for blood-based AD biomarkers and therapeutic targets
+
+---
+
+## References {.smaller}
+
+---

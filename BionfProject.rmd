@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
 
 This project develops a predictive model for Alzheimer's Disease (AD) using DNA methylation data from post-mortem brain tissue. After controlling for demographic and technical confounders we use logistic regression to identify which methylation markers can distinguish AD patients from healthy controls.
 
-**TO BE CHECKED Key Findings:**
+**Key Findings:**
 
 -   Analyzed 485,577 CpG methylation sites from 190 samples
 -   Identified significant methylation changes associated with AD progression

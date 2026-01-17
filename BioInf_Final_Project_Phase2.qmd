@@ -21,7 +21,7 @@ editor: visual
 
 # **Introduction**
 
-(SISTEMARE) Phase 2 extends the Phase 1 predictive service (Plumber API + trained logistic regression model) by adding a Shiny user interface that consumes the API strictly as a black box, and by providing a reproducible deployment with two interconnected Docker containers (API + Shiny). No changes are introduced to the trained model or the inference logic; the focus is on usability, integration, and deployment reproducibility.
+Phase 2 extends the Phase 1 predictive service (Plumber API + trained logistic regression model) by adding a Shiny user interface that consumes the API strictly as a black box, and by providing a reproducible deployment with two interconnected Docker containers (API + Shiny). No changes are introduced to the trained model or the inference logic; the focus is on usability, integration, and deployment reproducibility.
 
 In this deliverable we provide:
 
@@ -384,3 +384,4 @@ docker compose logs -f shiny
 **Disclaimer**
 
 This project is for educational purposes only and does not replace clinical judgment.
+

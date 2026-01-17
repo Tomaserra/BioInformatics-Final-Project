@@ -11,7 +11,7 @@
 
 <meta name="author" content="Marco Banfi, Simone Carrieri, Tomás Serra" />
 
-<meta name="date" content="2025-12-17" />
+<meta name="date" content="2026-01-17" />
 
 <title>Alzheimer’s Disease Prediction Using DNA Methylation Markers</title>
 
@@ -359,7 +359,7 @@ display: none;
 <h1 class="title toc-ignore"><strong>Alzheimer’s Disease Prediction
 Using DNA Methylation Markers</strong></h1>
 <h4 class="author">Marco Banfi, Simone Carrieri, Tomás Serra</h4>
-<h4 class="date">2025-12-17</h4>
+<h4 class="date">2026-01-17</h4>
 
 </div>
 
@@ -369,7 +369,7 @@ using DNA methylation data from post-mortem brain tissue. After
 controlling for demographic and technical confounders we use logistic
 regression to identify which methylation markers can distinguish AD
 patients from healthy controls.</p>
-<p><strong>TO BE CHECKED Key Findings:</strong></p>
+<p><strong>Key Findings:</strong></p>
 <ul>
 <li>Analyzed 485,577 CpG methylation sites from 190 samples</li>
 <li>Identified significant methylation changes associated with AD
@@ -2346,8 +2346,263 @@ diagnostic tools</li>
 </ul>
 <hr />
 </div>
-<div id="references" class="section level1" number="8">
-<h1><span class="header-section-number">8</span>
+<div id="api-deployment" class="section level1" number="8">
+<h1><span class="header-section-number">8</span> <strong>API
+Deployment</strong></h1>
+<div id="clinical-implementation-via-rest-api" class="section level2" number="8.1">
+<h2><span class="header-section-number">8.1</span> <strong>Clinical
+Implementation via REST API</strong></h2>
+<p>To make our predictive model accessible to clinicians without
+requiring R expertise, we developed a RESTful API using the
+<code>plumber</code> package. This allows external systems (Electronic
+Health Records, web dashboards, research platforms) to send patient
+methylation data and receive real-time Alzheimer’s risk predictions via
+standard HTTP requests.</p>
+<div id="api-source-code" class="section level3" number="8.1.1">
+<h3><span class="header-section-number">8.1.1</span> <strong>API Source
+Code</strong></h3>
+<p>The following is a preview of the API implementation stored in
+<code>APIFinalProject.r</code>:</p>
+<pre><code># ============================================================================
+# ALZHEIMER&#39;S PREDICTION API - R Plumber
+# ============================================================================
+# This file creates a REST API that physicians can use to obtain
+# Alzheimer&#39;s disease predictions based on DNA methylation data
+#
+# INITIAL SETUP:
+# 1. Run your main analysis script first to train the model
+# 2. The analysis saves: alzheimers_model.rds and selected_cpgs.rds
+# 3. Start the API with: plumber::pr_run(plumber::pr(&quot;api.R&quot;), port=8000)
+# ============================================================================
+
+library(plumber)
+library(jsonlite)
+library(dplyr)
+
+# ============================================================================
+# LOAD PRE-TRAINED MODEL AND DATA
+# ============================================================================
+# The main analysis script saves the model as &quot;alzheimers_model.rds&quot;
+# We need to prepare the API-compatible version with all necessary data
+
+# Load the model and selected CpGs
+model &lt;- readRDS(&quot;alzheimers_model.rds&quot;)
+top_cpgs &lt;- readRDS(&quot;selected_cpgs.rds&quot;)
+
+# ... [Rest of code truncated for brevity. See APIFinalProject.r for full implementation] ...</code></pre>
+<hr />
+</div>
+</div>
+<div id="api-architecture-and-endpoints" class="section level2" number="8.2">
+<h2><span class="header-section-number">8.2</span> <strong>API
+Architecture and Endpoints</strong></h2>
+<p>The API provides seven endpoints for different functionalities:</p>
+<div id="health-check-get-health" class="section level3" number="8.2.1">
+<h3><span class="header-section-number">8.2.1</span> <strong>1. Health
+Check (<code>GET /health</code>)</strong></h3>
+<p>Verifies the API is running and the model loaded correctly.</p>
+<pre class="bash"><code>curl http://localhost:8000/health</code></pre>
+<p>Returns server status, model availability, and number of required CpG
+sites.</p>
+</div>
+<div id="model-information-get-model-info" class="section level3" number="8.2.2">
+<h3><span class="header-section-number">8.2.2</span> <strong>2. Model
+Information (<code>GET /model-info</code>)</strong></h3>
+<p>Provides comprehensive model details including:</p>
+<ul>
+<li>Model type and predictive performance (accuracy, sensitivity,
+specificity)</li>
+<li>Required input format and variables</li>
+<li>List of selected CpG sites</li>
+<li>Human-readable interpretation of performance metrics</li>
+</ul>
+</div>
+<div id="cpg-site-importance-get-cpg-importance" class="section level3" number="8.2.3">
+<h3><span class="header-section-number">8.2.3</span> <strong>3. CpG Site
+Importance (<code>GET /cpg-importance</code>)</strong></h3>
+<p>Ranks methylation markers by their contribution to predictions:</p>
+<ul>
+<li>Odds ratios for each CpG site</li>
+<li>Effect direction (hypermethylation vs hypomethylation)</li>
+<li>Statistical significance levels</li>
+<li>Top 5 most important markers</li>
+</ul>
+</div>
+<div id="patient-prediction-post-predict-core-endpoint" class="section level3" number="8.2.4">
+<h3><span class="header-section-number">8.2.4</span> <strong>4. Patient
+Prediction (<code>POST /predict</code>)</strong> *Core Endpoint**</h3>
+<p>Generates Alzheimer’s risk prediction for individual patients.</p>
+<p><strong>Input format (JSON):</strong></p>
+<pre class="json"><code>{
+  &quot;M_values&quot;: [0.5, -1.2, 2.3, 0.8, -0.5, 1.1, 0.3, -0.9, 1.5, 0.2],
+  &quot;age&quot;: 75,
+  &quot;sex&quot;: &quot;M&quot;,
+  &quot;cell_type&quot;: &quot;neuron&quot;,
+  &quot;region&quot;: &quot;frontal cortex&quot;
+}</code></pre>
+<p><strong>Output includes:</strong></p>
+<ul>
+<li>AD probability (0-100%)</li>
+<li>Risk classification (LOW/MODERATE/HIGH)</li>
+<li>Clinical recommendations based on risk level</li>
+<li>Model confidence metrics</li>
+</ul>
+<p><strong>Risk stratification:</strong></p>
+<ul>
+<li><strong>LOW</strong> (&lt; 30%): Standard follow-up recommended</li>
+<li><strong>MODERATE</strong> (30-70%): Additional testing suggested
+(MRI, CSF biomarkers, PET scan)</li>
+<li><strong>HIGH</strong> (≥ 70%): Comprehensive neurological evaluation
+strongly recommended</li>
+</ul>
+</div>
+<div id="dataset-statistics-get-dataset-stats" class="section level3" number="8.2.5">
+<h3><span class="header-section-number">8.2.5</span> <strong>5. Dataset
+Statistics (<code>GET /dataset-stats</code>)</strong></h3>
+<p>Documents training data provenance:</p>
+<ul>
+<li>Dataset source (GSE66351)</li>
+<li>Feature selection methodology (covariate-controlled regression,
+Bonferroni correction)</li>
+<li>Model validation approach (70/30 train-test split)</li>
+<li>Selected CpG sites list</li>
+</ul>
+</div>
+<div id="beta-to-m-value-conversion-post-convert-beta-to-m" class="section level3" number="8.2.6">
+<h3><span class="header-section-number">8.2.6</span> <strong>6. Beta to
+M-value Conversion (<code>POST /convert-beta-to-m</code>)</strong></h3>
+<p>Helper endpoint for preprocessing methylation data:</p>
+<pre class="json"><code>{
+  &quot;beta_values&quot;: [0.5, 0.75, 0.25, 0.9, 0.1]
+}</code></pre>
+<p>Applies transformation: <span class="math inline">\(M =
+\log_2\left(\frac{\beta}{1-\beta}\right)\)</span> with edge case
+handling.</p>
+</div>
+<div id="api-documentation-get" class="section level3" number="8.2.7">
+<h3><span class="header-section-number">8.2.7</span> <strong>7. API
+Documentation (<code>GET /</code>)</strong></h3>
+<p>Landing page with endpoint overview and example curl commands.</p>
+<hr />
+</div>
+</div>
+<div id="how-to-deploy-and-use" class="section level2" number="8.3">
+<h2><span class="header-section-number">8.3</span> <strong>How to Deploy
+and Use</strong></h2>
+<div id="starting-the-api-server" class="section level3" number="8.3.1">
+<h3><span class="header-section-number">8.3.1</span> <strong>Starting
+the API Server</strong></h3>
+<pre class="r"><code>library(plumber)
+
+# Load and run the API
+pr &lt;- plumber::pr(&quot;APIFinalProject.r&quot;)
+plumber::pr_run(pr, port = 8000)</code></pre>
+<p>The server starts at <code>http://localhost:8000</code> with
+interactive documentation at
+<code>http://localhost:8000/__docs__/</code></p>
+</div>
+<div id="example-usage-python" class="section level3" number="8.3.2">
+<h3><span class="header-section-number">8.3.2</span> <strong>Example
+Usage (Python)</strong></h3>
+<pre class="python"><code>import requests
+
+# Step 1: Convert Beta values to M-values
+beta_response = requests.post(
+    &quot;http://localhost:8000/convert-beta-to-m&quot;,
+    json={&quot;beta_values&quot;: [0.52, 0.68, 0.45, 0.71, 0.38, 
+                          0.64, 0.49, 0.58, 0.67, 0.42]}
+)
+m_values = beta_response.json()[&quot;m_values&quot;]
+
+# Step 2: Make prediction
+prediction = requests.post(
+    &quot;http://localhost:8000/predict&quot;,
+    json={
+        &quot;M_values&quot;: m_values,
+        &quot;age&quot;: 75,
+        &quot;sex&quot;: &quot;M&quot;, 
+        &quot;cell_type&quot;: &quot;neuron&quot;,
+        &quot;region&quot;: &quot;frontal cortex&quot;
+    }
+)
+
+result = prediction.json()
+print(f&quot;Risk: {result[&#39;prediction&#39;][&#39;risk_level&#39;]}&quot;)
+print(f&quot;Probability: {result[&#39;prediction&#39;][&#39;probability_percent&#39;]}&quot;)</code></pre>
+<hr />
+</div>
+</div>
+<div id="implementation-details" class="section level2" number="8.4">
+<h2><span class="header-section-number">8.4</span>
+<strong>Implementation Details</strong></h2>
+<div id="data-validation" class="section level3" number="8.4.1">
+<h3><span class="header-section-number">8.4.1</span> <strong>Data
+Validation</strong></h3>
+<p>The API performs comprehensive input validation:</p>
+<ul>
+<li><strong>M-values</strong>: Ensures exact number of CpG sites
+required by model</li>
+<li><strong>Covariates</strong>: Checks all clinical variables (age,
+sex, cell_type, region) are present</li>
+<li><strong>Factor levels</strong>: Validates categorical variables
+match training data levels</li>
+<li><strong>Type conversion</strong>: Automatically converts inputs to
+appropriate types (numeric/factor)</li>
+</ul>
+<p>If validation fails, the API returns detailed error messages
+indicating which fields are missing or incorrect.</p>
+</div>
+<div id="preprocessing-pipeline" class="section level3" number="8.4.2">
+<h3><span class="header-section-number">8.4.2</span>
+<strong>Preprocessing Pipeline</strong></h3>
+<p>For each prediction request:</p>
+<ol style="list-style-type: decimal">
+<li><strong>Parse JSON</strong> input from HTTP body</li>
+<li><strong>Validate inputs</strong> (type, range, completeness)</li>
+<li><strong>Create data frame</strong> matching model’s expected
+structure</li>
+<li><strong>Name M-values</strong> as M_1, M_2, …, M_n to align with
+model coefficients</li>
+<li><strong>Convert factors</strong> with correct levels</li>
+<li><strong>Pass to model</strong> for prediction</li>
+<li><strong>Post-process</strong> probability into risk categories</li>
+<li><strong>Format response</strong> with clinical interpretation</li>
+</ol>
+</div>
+<div id="error-handling" class="section level3" number="8.4.3">
+<h3><span class="header-section-number">8.4.3</span> <strong>Error
+Handling</strong></h3>
+<p>All endpoints use try-catch blocks to gracefully handle errors:</p>
+<ul>
+<li>Invalid JSON → 400 Bad Request with explanation</li>
+<li>Missing required fields → 400 with list of required fields</li>
+<li>Mismatched factor levels → 400 with valid options</li>
+<li>Server errors → 500 with error details (without exposing internal
+code)</li>
+</ul>
+<hr />
+</div>
+</div>
+<div id="model-limitations" class="section level2" number="8.5">
+<h2><span class="header-section-number">8.5</span> <strong>Model
+Limitations</strong></h2>
+<ul>
+<li><strong>Post-mortem training data</strong>: Model trained on brain
+tissue from deceased patients; generalization to living patients
+unvalidated</li>
+<li><strong>Single cohort</strong>: Requires validation on independent
+datasets (GSE59685, GSE80970)</li>
+<li><strong>Brain tissue only</strong>: Clinical utility depends on
+validating in accessible biofluids (blood, CSF)</li>
+</ul>
+<p>That said, this API represents the critical translation step from
+research finding to clinical decision support tool, making advanced
+epigenetic analysis accessible at the point of care.</p>
+<hr />
+</div>
+</div>
+<div id="references" class="section level1" number="9">
+<h1><span class="header-section-number">9</span>
 <strong>References</strong></h1>
 <ol style="list-style-type: decimal">
 <li><p>König, T. and Stögmann, E. (2021). Genetics of Alzheimer’s

@@ -13,6 +13,8 @@ format:
     transition: slide
     background-transition: fade
     css: styles.css
+    width: 1300
+    height: 750
 ---
 
 ```{r setup, include=FALSE}
@@ -32,7 +34,7 @@ set.seed(123)
 ## The Challenge: Alzheimer's Disease {.smaller}
 
 :::: {.columns}
-::: {.column width="35%"}
+::: {.column width="50%"}
 **Clinical Features**
 
 Progressive neurodegenerative disorder with memory loss and cognitive decline
@@ -46,15 +48,17 @@ Progressive neurodegenerative disorder with memory loss and cognitive decline
 **Braak Staging (0-6)**
 
 Measures Tau distribution from transentorhinal (I-II) → limbic (III-IV) → neocortical (V-VI)
+
+**Our Approach:** Use DNA methylation patterns to predict AD status
 :::
 
-::: {.column width="65%"}
-```{r ad-overview-diagram, fig.height=3.5}
+::: {.column width="50%"}
+```{r ad-overview-diagram, fig.height=6, fig.width=6}
 library(DiagrammeR)
 grViz("
 digraph AD {
-  graph [rankdir=TB, bgcolor='transparent']
-  node [shape=box, style='rounded,filled', fontname='Arial', fontsize=11]
+  graph [rankdir=TB, bgcolor='transparent', size='6,6!']
+  node [shape=box, style='rounded,filled', fontname='Arial', fontsize=10, height=0.4, width=1.8]
   
   A [label='DNA Methylation\n(Epigenetic Changes)', fillcolor='#FFE5B4']
   B [label='Gene Expression\nDysregulation', fillcolor='#FFD4A3']
@@ -72,8 +76,6 @@ digraph AD {
 }
 ")
 ```
-
-**Our Approach:** Use DNA methylation patterns to predict AD status
 :::
 ::::
 
@@ -81,8 +83,8 @@ digraph AD {
 
 ## DNA Methylation & Study Design {.smaller}
 
-:::: {.columns}
-::: {.column width="50%"}
+:::: {.columns style="column-gap: 40px;"}
+::: {.column width="47%"}
 **What is Methylation?**
 
 Epigenetic modification (CH₃ groups) at CpG sites that regulates gene expression **without changing DNA sequence**
@@ -96,7 +98,7 @@ $M = \log_2\left(\frac{\beta}{1-\beta}\right)$
 - Better for linear modeling
 :::
 
-::: {.column width="50%"}
+::: {.column width="47%"}
 **Dataset: GSE66351**
 
 - **Platform:** Illumina HumanMethylation450
@@ -153,7 +155,7 @@ clinical_data$region <- factor(clinical_data$region)
 ## The Dimensionality Challenge {.smaller}
 
 :::: {.columns}
-::: {.column width="45%"}
+::: {.column width="43%"}
 **The Problem**
 
 - 485,577 CpG sites
@@ -167,27 +169,27 @@ clinical_data$region <- factor(clinical_data$region)
 ✗ Computational impractical  
 ✗ Loss of statistical power
 
-**Solution: Two-Stage Analysis**
+**Solution**
 
 1. Feature selection via linear regression
 2. Predictive modeling with selected CpGs
 :::
 
-::: {.column width="55%"}
-```{r feature-selection-diagram, fig.height=3.5}
+::: {.column width="57%"}
+```{r feature-selection-diagram, fig.height=3.2, fig.width=7.5}
 grViz("
 digraph FeatureSelection {
-  graph [rankdir=LR, bgcolor='transparent']
-  node [shape=box, style='rounded,filled', fontname='Arial', fontsize=10]
+  graph [rankdir=LR, bgcolor='transparent', size='7.5,3.2!']
+  node [shape=box, style='rounded,filled', fontname='Arial', fontsize=12, height=0.5, width=1.3]
   
   A [label='485,577\nCpG Sites', fillcolor='#FFE5E5']
-  B [label='Linear Regression\n+ Covariates\n(Age, Sex, Cell, Region)', fillcolor='#FFE5B4', shape=ellipse]
-  C [label='Multiple Testing\nBonferroni\np < 1.03×10⁻⁷', fillcolor='#FFD4A3', shape=diamond]
-  D [label='Selected CpGs\nfor Modeling', fillcolor='#C8E6C9']
+  B [label='Linear Regression\n+ Covariates', fillcolor='#FFE5B4', shape=ellipse, width=1.5]
+  C [label='Bonferroni\np < 1.03×10⁻⁷', fillcolor='#FFD4A3', shape=diamond, width=1.4]
+  D [label='Selected\nCpGs', fillcolor='#C8E6C9']
   
-  A -> B [label='Test each']
-  B -> C [label='485,577 tests']
-  C -> D [label='Significant only']
+  A -> B [label='Test', fontsize=12]
+  B -> C [label='485,577\ntests', fontsize=12]
+  C -> D [label='Sig.', fontsize=12]
 }
 ")
 ```
@@ -196,7 +198,7 @@ digraph FeatureSelection {
 
 $$M_{ij} = \beta_0 + \beta_1 \cdot Braak_i + \beta_2 \cdot Covariates_i + \epsilon_{ij}$$
 
-Tests association with disease **progression**, not just group differences
+Tests association with disease **progression**
 :::
 ::::
 
@@ -279,7 +281,7 @@ cpg_results$p_fdr <- p.adjust(cpg_results$p_value, method = "fdr")
 ```
 
 :::: {.columns}
-::: {.column width="50%"}
+::: {.column width="48%"}
 **Correction Strategy**
 
 | Method | Threshold | Significant |
@@ -288,14 +290,12 @@ cpg_results$p_fdr <- p.adjust(cpg_results$p_value, method = "fdr")
 | **FDR** | q < 0.05 | `r sum(cpg_results$p_fdr < 0.05)` |
 | **Bonferroni** | p < 1.03×10⁻⁷ | `r sum(cpg_results$p_bonferroni < 0.05)` |
 
-::: {.highlight-box}
-**Choice: Bonferroni**
-
-Maximum stringency for clinical reliability
+::: {.highlight-box style="padding: 8px; margin-top: 10px;"}
+**Choice: Bonferroni** — Maximum stringency for clinical reliability
 :::
 :::
 
-::: {.column width="50%"}
+::: {.column width="48%"}
 ```{r selection-results}
 n_samples <- ncol(m_values_valid)
 n_events <- min(sum(clinical_data_valid$AD_status), 
@@ -321,10 +321,8 @@ top_cpgs <- cpg_results$CpG[order(cpg_results$p_bonferroni)][1:n_to_select]
 - 15:1 rule → Max `r max_predictors` predictors
 - After covariates → `r max_cpgs` CpGs max
 
-::: {.success-box}
-**Final Selection: `r n_to_select` CpGs**
-
-Balance between power and overfitting prevention
+::: {.success-box style="padding: 8px; margin-top: 10px;"}
+**Final: `r n_to_select` CpGs** — Balance power & overfitting
 :::
 :::
 ::::
@@ -333,7 +331,7 @@ Balance between power and overfitting prevention
 
 ## Feature Selection Results {.smaller}
 
-```{r volcano-and-effects, fig.height=4}
+```{r volcano-and-effects, fig.height=3.8, fig.width=10}
 cpg_results$log10p <- -log10(cpg_results$p_value)
 cpg_results$selected <- cpg_results$CpG %in% top_cpgs
 bonferroni_threshold <- -log10(0.05 / nrow(cpg_results))
@@ -353,14 +351,14 @@ abline(h=bonferroni_threshold, col="red", lty=2, lwd=2)
 abline(h=-log10(0.05), col="turquoise", lty=3, lwd=1)
 legend("topright", legend=c("Selected", "Not selected", "Bonferroni", "p=0.05"),
        col=c("gold", "gray70", "red", "turquoise"), 
-       pch=c(20,20,NA,NA), lty=c(NA,NA,2,3), cex=0.7)
+       pch=c(20,20,NA,NA), lty=c(NA,NA,2,3), cex=0.65)
 
 # Effect sizes
 barplot(selected_cpg_details$Beta_Coefficient[order(selected_cpg_details$Beta_Coefficient)],
         names.arg=selected_cpg_details$CpG[order(selected_cpg_details$Beta_Coefficient)],
         horiz=TRUE, las=1, col=ifelse(selected_cpg_details$Beta_Coefficient[order(selected_cpg_details$Beta_Coefficient)] > 0, "lightblue", "orange"),
         xlab="β coefficient", main="Selected CpG Effect Sizes", 
-        cex.names=0.6, cex.main=0.9, cex.axis=0.8)
+        cex.names=0.55, cex.main=0.9, cex.axis=0.75)
 abline(v=0, lty=2)
 
 par(mfrow=c(1,1))
@@ -418,28 +416,27 @@ test_metrics <- calc_metrics(test_confusion)
 ```
 
 :::: {.columns}
-::: {.column width="48%"}
-**Logistic Regression Model**
+::: {.column width="46%"}
+**Logistic Regression**
 
-$$\log\left(\frac{P(AD)}{1-P(AD)}\right) = \beta_0 + \sum_{i=1}^{`r n_to_select`} \beta_i M_i + \beta_{cov} X_{cov}$$
+$$\log\left(\frac{P(AD)}{1-P(AD)}\right) = \beta_0 + \sum \beta_i M_i + \beta_{cov} X_{cov}$$
 
 **Training Strategy**
 
-- **70/30 stratified split**
-- Training: `r nrow(train_data)` samples
-- Test: `r nrow(test_data)` samples
-- AD ratio maintained: ~`r round(mean(analysis_data$AD_status)*100)`%
+- 70/30 stratified split
+- Training: `r nrow(train_data)` | Test: `r nrow(test_data)`
+- AD ratio: ~`r round(mean(analysis_data$AD_status)*100)`%
 
-**Key Interpretation**
+**Interpretation**
 
-- Coefficient (β): Log-odds change
-- Odds Ratio (e^β): Multiplicative effect
+- β: Log-odds change
+- OR (e^β): Multiplicative effect
 :::
 
-::: {.column width="52%"}
+::: {.column width="54%"}
 **Performance Metrics**
 
-```{r performance-comparison, fig.height=3.5}
+```{r performance-comparison, fig.height=3.3, fig.width=6}
 metrics_df <- data.frame(
   Metric = rep(c("Accuracy", "Sensitivity", "Specificity", "PPV", "NPV"), 2),
   Value = c(train_metrics$accuracy, train_metrics$sensitivity, 
@@ -452,16 +449,16 @@ metrics_df <- data.frame(
 ggplot(metrics_df, aes(x=Metric, y=Value, fill=Dataset)) +
   geom_bar(stat="identity", position="dodge") +
   geom_text(aes(label=sprintf("%.1f%%", Value)), 
-            position=position_dodge(width=0.9), vjust=-0.5, size=2.8) +
+            position=position_dodge(width=0.9), vjust=-0.5, size=2.6) +
   scale_fill_manual(values=c("Training"="#FFD4A3", "Test"="#51CF66")) +
-  ylim(0, 110) +
+  ylim(0, 108) +
   labs(y="Percentage (%)", title="Model Performance: Training vs Test") +
-  theme_minimal(base_size=10) +
+  theme_minimal(base_size=9.5) +
   theme(legend.position="top")
 ```
 
-::: {.success-box}
-**Generalization:** Test accuracy within `r sprintf("%.1f%%", abs(train_metrics$accuracy - test_metrics$accuracy)*100)` of training
+::: {.success-box style="padding: 6px; margin-top: 8px;"}
+**Generalization:** Δ = `r sprintf("%.1f%%", abs(train_metrics$accuracy - test_metrics$accuracy)*100)`
 :::
 :::
 ::::
@@ -505,8 +502,8 @@ m_predictors <- m_predictors[order(abs(m_predictors$Coefficient), decreasing = T
 ```
 
 :::: {.columns}
-::: {.column width="55%"}
-```{r odds-ratio-plot, fig.height=4}
+::: {.column width="56%"}
+```{r odds-ratio-plot, fig.height=3.8, fig.width=6.5}
 m_predictors_plot <- head(m_predictors, 8)
 m_predictors_plot$Label <- paste0(m_predictors_plot$Variable, "\n", 
                                   m_predictors_plot$CpG_name)
@@ -515,21 +512,21 @@ m_predictors_plot$Label <- factor(m_predictors_plot$Label,
 m_predictors_plot$Significant <- m_predictors_plot$P_value < 0.05
 
 ggplot(m_predictors_plot, aes(x = Odds_Ratio, y = Label, color=Significant)) +
-  geom_point(size = 3.5) +
-  geom_errorbarh(aes(xmin = Lower_95CI, xmax = Upper_95CI), height = 0.3, linewidth=0.8) +
-  geom_vline(xintercept = 1, linetype = "dashed", color = "red", linewidth = 1) +
+  geom_point(size = 3.2) +
+  geom_errorbarh(aes(xmin = Lower_95CI, xmax = Upper_95CI), height = 0.25, linewidth=0.75) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "red", linewidth = 0.9) +
   scale_x_log10(breaks = c(0.01, 0.1, 1, 10, 100, 1000)) +
   scale_color_manual(values = c("FALSE" = "gray50", "TRUE" = "#F2C94C"),
                      labels = c("p ≥ 0.05", "p < 0.05")) +
   labs(title = "Top Methylation Markers: Odds Ratios",
        x = "Odds Ratio (log scale)", y = "") +
-  theme_minimal(base_size=10) +
-  theme(legend.position = "top", axis.text.y = element_text(size=7))
+  theme_minimal(base_size=9.5) +
+  theme(legend.position = "top", axis.text.y = element_text(size=6.5))
 ```
 :::
 
-::: {.column width="45%"}
-**Top 5 Methylation Predictors**
+::: {.column width="44%"}
+**Top 5 Predictors**
 
 ```{r top-predictors-table}
 knitr::kable(m_predictors[1:5, c("CpG_name", "Coefficient", "Odds_Ratio", "P_value")],
@@ -537,17 +534,12 @@ knitr::kable(m_predictors[1:5, c("CpG_name", "Coefficient", "Odds_Ratio", "P_val
              col.names = c("CpG Site", "β", "OR", "p-value"))
 ```
 
-**Example Interpretation:**
+**Example:** `r m_predictors$CpG_name[1]`
 
-For `r m_predictors$CpG_name[1]`:
+Each 1-unit ↑ in M-value multiplies AD odds by `r round(m_predictors$Odds_Ratio[1], 2)`
 
-- β = `r round(m_predictors$Coefficient[1], 3)`
-- OR = `r round(m_predictors$Odds_Ratio[1], 2)`
-
-→ Each 1-unit increase in M-value multiplies AD odds by `r round(m_predictors$Odds_Ratio[1], 2)`
-
-::: {.highlight-box}
-**Clinical Meaning:** Strong methylation-based biomarkers
+::: {.highlight-box style="padding: 6px; margin-top: 10px;"}
+Strong methylation biomarkers
 :::
 :::
 ::::
@@ -561,46 +553,41 @@ For `r m_predictors$CpG_name[1]`:
 ## Key Findings & Implications {.smaller}
 
 :::: {.columns}
-::: {.column width="50%"}
+::: {.column width="48%"}
 **Scientific Achievements**
 
-✓ **Genome-wide analysis:** `r nrow(cpg_results)` CpG sites tested  
-✓ **Stringent selection:** `r n_to_select` highly significant sites  
-✓ **Robust validation:** `r sprintf("%.1f%%", test_metrics$accuracy*100)` test accuracy  
-✓ **Mechanistic insight:** Progression-dependent changes
+✓ Genome-wide: `r nrow(cpg_results)` CpGs tested  
+✓ Selection: `r n_to_select` significant sites  
+✓ Validation: `r sprintf("%.1f%%", test_metrics$accuracy*100)` test accuracy  
+✓ Mechanistic: Progression-dependent
 
 **Biological Insights**
 
-- Both hyper- and hypomethylation observed
-- Effects independent of confounders
-- Consistent with AD-related genes
-- Links epigenetics to neurodegeneration
+- Hyper- & hypomethylation
+- Independent of confounders
+- Consistent with AD genes
+- Epigenetic → neurodegeneration
 
-**Clinical Potential**
-
-1. Biomarker development → Blood tests
-2. Therapeutic targets → Modifiable
-3. Patient stratification → Trials
-4. Disease mechanism → Pathways
+**Clinical Potential:** 1. Blood biomarkers; 2. Therapeutic targets; 3. Patient stratification; 4. Disease mechanisms
 :::
 
-::: {.column width="50%"}
-**Limitations & Future Directions**
+::: {.column width="52%"}
+**Limitations & Future**
 
-```{r limitations-diagram, fig.height=3.5}
+```{r limitations-diagram, fig.height=3.2, fig.width=7}
 grViz("
 digraph Limitations {
-  graph [rankdir=TB, bgcolor='transparent']
-  node [shape=box, style='rounded,filled', fontname='Arial', fontsize=9]
+  graph [rankdir=TB, bgcolor='transparent', size='7,3.2!']
+  node [shape=box, style='rounded,filled', fontname='Arial', fontsize=8.5, height=0.4, width=1.4]
   
   A [label='Current Study\nPost-mortem brain\nSingle cohort', fillcolor='#FFE5E5']
   
-  B1 [label='Validate in\nindependent cohorts', fillcolor='#FFF9E6']
-  B2 [label='Test different\nbrain regions', fillcolor='#FFF9E6']
+  B1 [label='Validate\nindependent\ncohorts', fillcolor='#FFF9E6']
+  B2 [label='Test\nbrain regions', fillcolor='#FFF9E6']
   B3 [label='Blood-based\nbiomarkers', fillcolor='#FFF9E6']
   B4 [label='Longitudinal\nstudies', fillcolor='#FFF9E6']
   
-  C [label='Clinical Application\nEarly detection & monitoring', fillcolor='#C8E6C9']
+  C [label='Clinical Application\nEarly detection', fillcolor='#C8E6C9']
   
   A -> B1
   A -> B2
@@ -615,9 +602,9 @@ digraph Limitations {
 ")
 ```
 
-::: {.warning-box}
-**Critical:** Post-mortem data cannot enable pre-mortem diagnosis  
-**Solution:** Translate to accessible tissues
+::: {.warning-box style="padding: 6px; margin-top: 8px;"}
+**Critical:** Post-mortem ≠ pre-mortem diagnosis  
+**Solution:** Accessible tissues (blood/CSF)
 :::
 :::
 ::::
@@ -647,31 +634,31 @@ saveRDS(list(
 ```
 
 :::: {.columns}
-::: {.column width="48%"}
-**API Package Contents**
+::: {.column width="46%"}
+**API Package**
 
-📦 `alzheimers_model_api.rds` includes:
+📦 `alzheimers_model_api.rds`:
 
-1. Trained model (logistic regression)
-2. Required CpGs (`r n_to_select` sites)
-3. Coefficient interpretation (β, OR, CI)
-4. Performance metrics (train & test)
-5. Helper functions (β → M conversion)
+1. Trained model
+2. `r n_to_select` required CpGs
+3. Interpretation (β, OR, CI)
+4. Performance metrics
+5. Helper functions
 
 **Required Inputs**
 
-- M-values for `r n_to_select` CpG sites
-- Age, Sex, Cell type, Brain region
+- M-values for `r n_to_select` CpGs
+- Age, Sex, Cell type, Region
 :::
 
-::: {.column width="52%"}
+::: {.column width="54%"}
 **Usage Example**
 
 ```{r usage-example, echo=TRUE, eval=FALSE}
 # Load model
 model_pkg <- readRDS('alzheimers_model_api.rds')
 
-# Prepare new sample
+# Prepare sample
 new_data <- data.frame(
   M_1 = -2.1, M_2 = 1.8,
   # ... other M-values
@@ -698,16 +685,303 @@ if (prob > 0.5) {
 
 ## Summary & Conclusions {.center}
 
-::: {.highlight-box}
+::: {.highlight-box style="margin: 40px auto; max-width: 900px; padding: 18px;"}
 **Main Contributions**
 
-✓ Identified `r n_to_select` robust methylation biomarkers using stringent Bonferroni correction  
-✓ Achieved `r sprintf("%.1f%%", test_metrics$accuracy*100)` test accuracy with good generalization  
-✓ Controlled for key confounders (age, sex, cell type, region)  
-✓ Created deployable API for AD prediction
+✓ `r n_to_select` robust biomarkers (Bonferroni-corrected)  
+✓ `r sprintf("%.1f%%", test_metrics$accuracy*100)` test accuracy with good generalization  
+✓ Controlled for confounders (age, sex, cell type, region)  
+✓ Deployed API for AD prediction
 :::
 
-**Impact:** Foundation for blood-based AD biomarkers and therapeutic targets
+**Impact:** Foundation for blood-based biomarkers and therapeutic targets
+
+---
+
+# 5. API Deployment {data-background-color="#F2C94C" class="section-slide"}
+
+---
+
+## REST API for Clinical Implementation {.smaller}
+
+:::: {.columns}
+::: {.column width="46%"}
+**Purpose**
+
+Make predictions accessible via HTTP requests without R expertise
+
+**Architecture**
+
+- `plumber` R package
+- RESTful design
+- JSON input/output
+- Error handling
+
+**Key Features**
+
+✓ Real-time predictions  
+✓ Input validation  
+✓ Risk stratification  
+✓ Clinical recommendations  
+✓ Beta→M conversion
+:::
+
+::: {.column width="54%"}
+```{r api-architecture, fig.height=4, fig.width=7}
+grViz("
+digraph API {
+  graph [rankdir=TB, bgcolor='transparent', size='7,4!']
+  node [shape=box, style='rounded,filled', fontname='Arial', fontsize=8.5, height=0.35, width=1.3]
+  
+  A [label='External Systems\n(EHR, Dashboards)', fillcolor='#E3F2FD', shape=ellipse, width=1.5]
+  
+  B1 [label='POST /predict\nRisk Assessment', fillcolor='#FFF9E6']
+  B2 [label='GET /model-info\nModel Details', fillcolor='#FFF9E6']
+  B3 [label='POST /convert\nBeta→M Values', fillcolor='#FFF9E6']
+  B4 [label='GET /cpg-importance\nBiomarker Ranking', fillcolor='#FFF9E6']
+  
+  C [label='Trained Model\nAlzheimers Prediction', fillcolor='#C8E6C9']
+  
+  D [label='JSON Response\nRisk + Recommendations', fillcolor='#FFE5B4']
+  
+  A -> B1
+  A -> B2
+  A -> B3
+  A -> B4
+  
+  B1 -> C
+  B2 -> C
+  B3 -> C
+  B4 -> C
+  
+  C -> D
+  D -> A
+}
+")
+```
+:::
+::::
+
+---
+
+## API Endpoints Overview {.smaller}
+
+| Endpoint | Method | Purpose | Key Output |
+|----------|--------|---------|------------|
+| `/health` | GET | System status | Server health, model loaded |
+| `/model-info` | GET | Model details | Performance metrics, requirements |
+| `/cpg-importance` | GET | Biomarker ranking | Odds ratios, effect directions |
+| **`/predict`** | **POST** | **Risk prediction** | **AD probability, risk level** |
+| `/dataset-stats` | GET | Training data info | Dataset source, methodology |
+| `/convert-beta-to-m` | POST | Value conversion | M-values from beta-values |
+
+**Interactive docs:** `http://localhost:8000/__docs__/`
+
+---
+
+## Prediction Endpoint {.smaller}
+
+:::: {.columns}
+::: {.column width="48%"}
+**Input (JSON)**
+```json
+{
+  "M_values": [0.5, -1.2, 2.3, 
+               0.8, -0.5, 1.1, 
+               0.3, -0.9, 1.5, 0.2],
+  "age": 75,
+  "sex": "M",
+  "cell_type": "neuron",
+  "region": "frontal cortex"
+}
+```
+
+**Risk Stratification**
+
+- **LOW** (< 30%): Standard follow-up
+- **MODERATE** (30-70%): Additional testing
+- **HIGH** (≥ 70%): Comprehensive evaluation
+:::
+
+::: {.column width="52%"}
+**Output**
+```json
+{
+  "prediction": {
+    "probability": 0.78,
+    "probability_percent": "78.0%",
+    "risk_level": "HIGH",
+    "recommendation": "Comprehensive 
+      neurological evaluation 
+      strongly recommended"
+  },
+  "model_confidence": {
+    "accuracy": "92.7%",
+    "sensitivity": "90.0%"
+  }
+}
+```
+
+Enables point-of-care decision support
+:::
+::::
+
+---
+
+## Data Validation Pipeline {.smaller}
+
+```{r pipeline-diagram, fig.height=3.2, fig.width=13}
+grViz("
+digraph Pipeline {
+  graph [rankdir=LR, bgcolor='transparent', size='13,3.2!']
+  node [shape=box, style='rounded,filled', fontname='Arial', fontsize=8.5, height=0.45, width=1.1]
+  
+  A [label='HTTP\nRequest\n(JSON)', fillcolor='#E3F2FD']
+  B [label='Parse\nJSON', fillcolor='#FFF9E6']
+  C [label='Validate\nInputs', fillcolor='#FFE5B4', shape=diamond, width=1.2]
+  D [label='Create\nData Frame', fillcolor='#FFD4A3']
+  E [label='Model\nPrediction', fillcolor='#FFC292']
+  F [label='Post-process\nRisk Category', fillcolor='#FFB081']
+  G [label='Format\nResponse', fillcolor='#C8E6C9']
+  H [label='JSON\nResponse', fillcolor='#E3F2FD']
+  
+  Error [label='Error\nHandler\n400/500', fillcolor='#FFCDD2', shape=ellipse, width=1.1]
+  
+  A -> B -> C
+  C -> D [label='Valid']
+  C -> Error [label='Invalid']
+  D -> E -> F -> G -> H
+}
+")
+```
+
+**Validation:** Exact M-values (`r n_to_select` CpGs) • Covariates present • Factor levels match • Type conversion
+
+---
+
+## Usage Example: Python {.smaller}
+
+:::: {.columns}
+::: {.column width="50%"}
+```python
+import requests
+
+# Step 1: Convert Beta to M-values
+beta_response = requests.post(
+    "http://localhost:8000/convert-beta-to-m",
+    json={
+        "beta_values": [0.52, 0.68, 0.45, 
+                       0.71, 0.38, 0.64, 
+                       0.49, 0.58, 0.67, 0.42]
+    }
+)
+m_values = beta_response.json()["m_values"]
+
+# Step 2: Make prediction
+prediction = requests.post(
+    "http://localhost:8000/predict",
+    json={
+        "M_values": m_values,
+        "age": 75,
+        "sex": "M", 
+        "cell_type": "neuron",
+        "region": "frontal cortex"
+    }
+)
+
+result = prediction.json()
+print(f"Risk: {result['prediction']['risk_level']}")
+print(f"Prob: {result['prediction']['probability_percent']}")
+```
+:::
+
+::: {.column width="50%"}
+**Starting Server**
+```r
+library(plumber)
+
+pr <- plumber::pr("APIFinalProject.r")
+plumber::pr_run(pr, port = 8000)
+```
+
+**Benefits**
+
+✓ Language-agnostic  
+✓ Clinical systems integration  
+✓ Real-time (< 100ms)  
+✓ Scalable
+
+::: {.success-box style="padding: 6px; margin-top: 12px;"}
+Research → Clinical tool
+:::
+:::
+::::
+
+---
+
+## API Limitations & Deployment {.smaller}
+
+:::: {.columns}
+::: {.column width="48%"}
+**Current Limitations**
+
+⚠ **Post-mortem data**  
+- Brain tissue from deceased
+- Generalization unvalidated
+
+⚠ **Single cohort**  
+- Independent validation needed
+
+⚠ **Brain tissue only**  
+- Blood/CSF validation required
+
+⚠ **No longitudinal data**
+:::
+
+::: {.column width="52%"}
+**Production Requirements**
+
+- HIPAA-compliant infrastructure
+- SSL/TLS encryption
+- Authentication & authorization
+- Rate limiting
+- Logging & monitoring
+- Model retraining
+
+**Next Steps:**
+1. Validate on GSE59685, GSE80970
+2. Test on accessible biofluids
+3. Longitudinal studies
+4. Clinical workflow integration
+:::
+::::
+
+::: {.highlight-box style="padding: 8px; margin-top: 12px;"}
+**Impact:** Critical translation step — research to clinical decision support
+:::
+
+---
+
+# 6. Summary {data-background-color="#F2C94C" class="section-slide"}
+
+---
+
+## Final Summary {.smaller}
+
+::: {.highlight-box style="margin: 30px auto 25px auto; max-width: 1000px; padding: 16px;"}
+**Main Achievements**
+
+✓ Genome-wide: `r nrow(cpg_results)` CpG sites → `r n_to_select` robust biomarkers  
+✓ Test accuracy: `r sprintf("%.1f%%", test_metrics$accuracy*100)` with excellent generalization  
+✓ Stringent validation: Bonferroni + covariate control  
+✓ **Clinical translation: REST API for real-time predictions**
+:::
+
+**Scientific Impact:** Links DNA methylation to AD pathology
+
+**Clinical Impact:** Foundation for blood-based diagnostics + decision support
+
+**Technical Impact:** Open-source API enables broader adoption
 
 ---
 

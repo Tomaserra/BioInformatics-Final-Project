@@ -1274,6 +1274,213 @@ With this project we successfully developed a logistic regression model for Alzh
 
 ------------------------------------------------------------------------
 
+# **API Deployment**
+
+## **Clinical Implementation via REST API**
+
+To make our predictive model accessible to clinicians without requiring R expertise, we developed a RESTful API using the `plumber` package. This allows external systems (Electronic Health Records, web dashboards, research platforms) to send patient methylation data and receive real-time Alzheimer's risk predictions via standard HTTP requests.
+
+### **API Source Code**
+
+The following is a preview of the API implementation stored in `APIFinalProject.r`:
+
+```{r api-code-display, echo=FALSE, comment=''}
+if(file.exists("APIFinalProject.r")) {
+  # Read the file
+  api_code <- readLines("APIFinalProject.r")
+  
+  # Select only the first 50 lines
+  preview_lines <- head(api_code, 25)
+  
+  # Print the preview
+  cat(paste(preview_lines, collapse = "\n"))
+  
+  # Add a visual indicator that the code is truncated
+  cat("\n\n# ... [Rest of code truncated for brevity. See APIFinalProject.r for full implementation] ...")
+} else {
+  cat("Error: APIFinalProject.r not found.")
+}
+```
+
+---
+
+## **API Architecture and Endpoints**
+
+The API provides seven endpoints for different functionalities:
+
+### **1. Health Check (`GET /health`)**
+
+Verifies the API is running and the model loaded correctly.
+```bash
+curl http://localhost:8000/health
+```
+
+Returns server status, model availability, and number of required CpG sites.
+
+### **2. Model Information (`GET /model-info`)**
+
+Provides comprehensive model details including:
+
+- Model type and predictive performance (accuracy, sensitivity, specificity)
+- Required input format and variables
+- List of selected CpG sites
+- Human-readable interpretation of performance metrics
+
+### **3. CpG Site Importance (`GET /cpg-importance`)**
+
+Ranks methylation markers by their contribution to predictions:
+
+- Odds ratios for each CpG site
+- Effect direction (hypermethylation vs hypomethylation)
+- Statistical significance levels
+- Top 5 most important markers
+
+### **4. Patient Prediction (`POST /predict`)** *Core Endpoint**
+
+Generates Alzheimer's risk prediction for individual patients.
+
+**Input format (JSON):**
+```json
+{
+  "M_values": [0.5, -1.2, 2.3, 0.8, -0.5, 1.1, 0.3, -0.9, 1.5, 0.2],
+  "age": 75,
+  "sex": "M",
+  "cell_type": "neuron",
+  "region": "frontal cortex"
+}
+```
+
+**Output includes:**
+
+- AD probability (0-100%)
+- Risk classification (LOW/MODERATE/HIGH)
+- Clinical recommendations based on risk level
+- Model confidence metrics
+
+**Risk stratification:**
+
+- **LOW** (< 30%): Standard follow-up recommended
+- **MODERATE** (30-70%): Additional testing suggested (MRI, CSF biomarkers, PET scan)
+- **HIGH** (≥ 70%): Comprehensive neurological evaluation strongly recommended
+
+### **5. Dataset Statistics (`GET /dataset-stats`)**
+
+Documents training data provenance:
+
+- Dataset source (GSE66351)
+- Feature selection methodology (covariate-controlled regression, Bonferroni correction)
+- Model validation approach (70/30 train-test split)
+- Selected CpG sites list
+
+### **6. Beta to M-value Conversion (`POST /convert-beta-to-m`)**
+
+Helper endpoint for preprocessing methylation data:
+```json
+{
+  "beta_values": [0.5, 0.75, 0.25, 0.9, 0.1]
+}
+```
+
+Applies transformation: $M = \log_2\left(\frac{\beta}{1-\beta}\right)$ with edge case handling.
+
+### **7. API Documentation (`GET /`)**
+
+Landing page with endpoint overview and example curl commands.
+
+---
+
+## **How to Deploy and Use**
+
+### **Starting the API Server**
+```r
+library(plumber)
+
+# Load and run the API
+pr <- plumber::pr("APIFinalProject.r")
+plumber::pr_run(pr, port = 8000)
+```
+
+The server starts at `http://localhost:8000` with interactive documentation at `http://localhost:8000/__docs__/`
+
+### **Example Usage (Python)**
+```python
+import requests
+
+# Step 1: Convert Beta values to M-values
+beta_response = requests.post(
+    "http://localhost:8000/convert-beta-to-m",
+    json={"beta_values": [0.52, 0.68, 0.45, 0.71, 0.38, 
+                          0.64, 0.49, 0.58, 0.67, 0.42]}
+)
+m_values = beta_response.json()["m_values"]
+
+# Step 2: Make prediction
+prediction = requests.post(
+    "http://localhost:8000/predict",
+    json={
+        "M_values": m_values,
+        "age": 75,
+        "sex": "M", 
+        "cell_type": "neuron",
+        "region": "frontal cortex"
+    }
+)
+
+result = prediction.json()
+print(f"Risk: {result['prediction']['risk_level']}")
+print(f"Probability: {result['prediction']['probability_percent']}")
+```
+
+---
+
+## **Implementation Details**
+
+### **Data Validation**
+
+The API performs comprehensive input validation:
+
+- **M-values**: Ensures exact number of CpG sites required by model
+- **Covariates**: Checks all clinical variables (age, sex, cell_type, region) are present
+- **Factor levels**: Validates categorical variables match training data levels
+- **Type conversion**: Automatically converts inputs to appropriate types (numeric/factor)
+
+If validation fails, the API returns detailed error messages indicating which fields are missing or incorrect.
+
+### **Preprocessing Pipeline**
+
+For each prediction request:
+
+1. **Parse JSON** input from HTTP body
+2. **Validate inputs** (type, range, completeness)
+3. **Create data frame** matching model's expected structure
+4. **Name M-values** as M_1, M_2, ..., M_n to align with model coefficients
+5. **Convert factors** with correct levels
+6. **Pass to model** for prediction
+7. **Post-process** probability into risk categories
+8. **Format response** with clinical interpretation
+
+### **Error Handling**
+
+All endpoints use try-catch blocks to gracefully handle errors:
+
+- Invalid JSON → 400 Bad Request with explanation
+- Missing required fields → 400 with list of required fields
+- Mismatched factor levels → 400 with valid options
+- Server errors → 500 with error details (without exposing internal code)
+
+---
+
+## **Model Limitations**
+
+- **Post-mortem training data**: Model trained on brain tissue from deceased patients; generalization to living patients unvalidated
+- **Single cohort**: Requires validation on independent datasets (GSE59685, GSE80970)
+- **Brain tissue only**: Clinical utility depends on validating in accessible biofluids (blood, CSF)
+
+That said, this API represents the critical translation step from research finding to clinical decision support tool, making advanced epigenetic analysis accessible at the point of care.
+
+------------------------------------------------------------------------
+
+
 # **References**
 
 1.  König, T. and Stögmann, E. (2021). Genetics of Alzheimer’s disease. Wiener Medizinische Wochenschrift, 171(11-12). <doi:https://doi.org/10.1007/s10354-021-00819-9>.

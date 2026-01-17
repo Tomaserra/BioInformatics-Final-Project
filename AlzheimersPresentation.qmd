@@ -609,11 +609,8 @@ digraph Limitations {
 :::
 ::::
 
----
 
-## Model Deployment for API {.smaller}
-
-```{r save-model}
+```{r save-model, include=FALSE}
 saveRDS(model, file = "alzheimers_model.rds")
 saveRDS(top_cpgs, file = "selected_cpgs.rds")
 
@@ -632,54 +629,6 @@ saveRDS(list(
   )
 ), "alzheimers_model_api.rds")
 ```
-
-:::: {.columns}
-::: {.column width="46%"}
-**API Package**
-
-📦 `alzheimers_model_api.rds`:
-
-1. Trained model
-2. `r n_to_select` required CpGs
-3. Interpretation (β, OR, CI)
-4. Performance metrics
-5. Helper functions
-
-**Required Inputs**
-
-- M-values for `r n_to_select` CpGs
-- Age, Sex, Cell type, Region
-:::
-
-::: {.column width="54%"}
-**Usage Example**
-
-```{r usage-example, echo=TRUE, eval=FALSE}
-# Load model
-model_pkg <- readRDS('alzheimers_model_api.rds')
-
-# Prepare sample
-new_data <- data.frame(
-  M_1 = -2.1, M_2 = 1.8,
-  # ... other M-values
-  age = 78, sex = "Female",
-  cell_type = "bulk",
-  region = "frontal cortex"
-)
-
-# Predict
-prob <- predict(model_pkg$model, 
-                new_data, 
-                type = "response")
-
-# Interpret
-if (prob > 0.5) {
-  paste("AD predicted:", 
-        round(prob*100, 1), "%")
-}
-```
-:::
-::::
 
 ---
 
@@ -764,26 +713,33 @@ digraph API {
 
 ---
 
-## API Endpoints Overview {.smaller}
-
-| Endpoint | Method | Purpose | Key Output |
-|----------|--------|---------|------------|
-| `/health` | GET | System status | Server health, model loaded |
-| `/model-info` | GET | Model details | Performance metrics, requirements |
-| `/cpg-importance` | GET | Biomarker ranking | Odds ratios, effect directions |
-| **`/predict`** | **POST** | **Risk prediction** | **AD probability, risk level** |
-| `/dataset-stats` | GET | Training data info | Dataset source, methodology |
-| `/convert-beta-to-m` | POST | Value conversion | M-values from beta-values |
-
-**Interactive docs:** `http://localhost:8000/__docs__/`
-
----
-
-## Prediction Endpoint {.smaller}
+## Core Functionality & Handoff {.smaller}
 
 :::: {.columns}
 ::: {.column width="48%"}
-**Input (JSON)**
+**Deliverable**
+
+REST API using `plumber` for model accessibility
+
+**Purpose**
+
+Enable integration into applications (e.g., Shiny dashboard) without R/modeling expertise
+
+**Main Endpoint: `/predict`**
+
+Accepts patient data, returns AD risk prediction with clinical recommendations
+
+**Additional Endpoints:**
+- `/model-info` - Model specifications
+- `/cpg-importance` - Biomarker ranking  
+- `/convert-beta-to-m` - Data preprocessing
+- `/health` - System status
+:::
+
+::: {.column width="52%"}
+**Example: `/predict` Endpoint**
+
+Input (JSON):
 ```json
 {
   "M_values": [0.5, -1.2, 2.3, 
@@ -796,169 +752,19 @@ digraph API {
 }
 ```
 
-**Risk Stratification**
-
-- **LOW** (< 30%): Standard follow-up
-- **MODERATE** (30-70%): Additional testing
-- **HIGH** (≥ 70%): Comprehensive evaluation
-:::
-
-::: {.column width="52%"}
-**Output**
+Output:
 ```json
 {
-  "prediction": {
-    "probability": 0.78,
-    "probability_percent": "78.0%",
-    "risk_level": "HIGH",
-    "recommendation": "Comprehensive 
-      neurological evaluation 
-      strongly recommended"
-  },
-  "model_confidence": {
-    "accuracy": "92.7%",
-    "sensitivity": "90.0%"
-  }
+  "probability": 0.78,
+  "risk_level": "HIGH",
+  "recommendation": "Comprehensive 
+    neurological evaluation"
 }
 ```
-
-Enables point-of-care decision support
 :::
 ::::
 
----
-
-## Data Validation Pipeline {.smaller}
-
-```{r pipeline-diagram, fig.height=3.2, fig.width=13}
-grViz("
-digraph Pipeline {
-  graph [rankdir=LR, bgcolor='transparent', size='13,3.2!']
-  node [shape=box, style='rounded,filled', fontname='Arial', fontsize=8.5, height=0.45, width=1.1]
-  
-  A [label='HTTP\nRequest\n(JSON)', fillcolor='#E3F2FD']
-  B [label='Parse\nJSON', fillcolor='#FFF9E6']
-  C [label='Validate\nInputs', fillcolor='#FFE5B4', shape=diamond, width=1.2]
-  D [label='Create\nData Frame', fillcolor='#FFD4A3']
-  E [label='Model\nPrediction', fillcolor='#FFC292']
-  F [label='Post-process\nRisk Category', fillcolor='#FFB081']
-  G [label='Format\nResponse', fillcolor='#C8E6C9']
-  H [label='JSON\nResponse', fillcolor='#E3F2FD']
-  
-  Error [label='Error\nHandler\n400/500', fillcolor='#FFCDD2', shape=ellipse, width=1.1]
-  
-  A -> B -> C
-  C -> D [label='Valid']
-  C -> Error [label='Invalid']
-  D -> E -> F -> G -> H
-}
-")
-```
-
-**Validation:** Exact M-values (`r n_to_select` CpGs) • Covariates present • Factor levels match • Type conversion
-
----
-
-## Usage Example: Python {.smaller}
-
-:::: {.columns}
-::: {.column width="50%"}
-```python
-import requests
-
-# Step 1: Convert Beta to M-values
-beta_response = requests.post(
-    "http://localhost:8000/convert-beta-to-m",
-    json={
-        "beta_values": [0.52, 0.68, 0.45, 
-                       0.71, 0.38, 0.64, 
-                       0.49, 0.58, 0.67, 0.42]
-    }
-)
-m_values = beta_response.json()["m_values"]
-
-# Step 2: Make prediction
-prediction = requests.post(
-    "http://localhost:8000/predict",
-    json={
-        "M_values": m_values,
-        "age": 75,
-        "sex": "M", 
-        "cell_type": "neuron",
-        "region": "frontal cortex"
-    }
-)
-
-result = prediction.json()
-print(f"Risk: {result['prediction']['risk_level']}")
-print(f"Prob: {result['prediction']['probability_percent']}")
-```
-:::
-
-::: {.column width="50%"}
-**Starting Server**
-```r
-library(plumber)
-
-pr <- plumber::pr("APIFinalProject.r")
-plumber::pr_run(pr, port = 8000)
-```
-
-**Benefits**
-
-✓ Language-agnostic  
-✓ Clinical systems integration  
-✓ Real-time (< 100ms)  
-✓ Scalable
-
-::: {.success-box style="padding: 6px; margin-top: 12px;"}
-Research → Clinical tool
-:::
-:::
-::::
-
----
-
-## API Limitations & Deployment {.smaller}
-
-:::: {.columns}
-::: {.column width="48%"}
-**Current Limitations**
-
-⚠ **Post-mortem data**  
-- Brain tissue from deceased
-- Generalization unvalidated
-
-⚠ **Single cohort**  
-- Independent validation needed
-
-⚠ **Brain tissue only**  
-- Blood/CSF validation required
-
-⚠ **No longitudinal data**
-:::
-
-::: {.column width="52%"}
-**Production Requirements**
-
-- HIPAA-compliant infrastructure
-- SSL/TLS encryption
-- Authentication & authorization
-- Rate limiting
-- Logging & monitoring
-- Model retraining
-
-**Next Steps:**
-1. Validate on GSE59685, GSE80970
-2. Test on accessible biofluids
-3. Longitudinal studies
-4. Clinical workflow integration
-:::
-::::
-
-::: {.highlight-box style="padding: 8px; margin-top: 12px;"}
-**Impact:** Critical translation step — research to clinical decision support
-:::
+**Status:** ✓ API deployed at `localhost:8000` — Ready for Shiny integration
 
 ---
 
@@ -977,14 +783,34 @@ Research → Clinical tool
 ✓ **Clinical translation: REST API for real-time predictions**
 :::
 
-**Scientific Impact:** Links DNA methylation to AD pathology
+**1. Scientific Impact:** Links DNA methylation to AD pathology
 
-**Clinical Impact:** Foundation for blood-based diagnostics + decision support
+**2. Clinical Impact:** Foundation for blood-based diagnostics + decision support
 
-**Technical Impact:** Open-source API enables broader adoption
+**3. Technical Impact:** Open-source API enables broader adoption
 
 ---
 
 ## References {.smaller}
 
----
+::: {style="font-size: 0.75em; line-height: 1.4;"}
+
+1. König, T. and Stögmann, E. (2021). Genetics of Alzheimer's disease. *Wiener Medizinische Wochenschrift*, 171(11-12). doi:[10.1007/s10354-021-00819-9](https://doi.org/10.1007/s10354-021-00819-9)
+
+2. Moore, L.D., Le, T. and Fan, G. (2012). DNA Methylation and Its Basic Function. *Neuropsychopharmacology*, 38(1), pp.23–38. doi:[10.1038/npp.2012.112](https://doi.org/10.1038/npp.2012.112)
+
+3. Gan, Y., et al. (2025). Exploration and validation of biomarkers for Alzheimer's disease based on GEO database. *IBRO Neuroscience Reports*. doi:[10.1016/j.ibneur.2025.03.006](https://doi.org/10.1016/j.ibneur.2025.03.006)
+
+4. GEO Accession viewer (2024). Available at: [ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE66351](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE66351)
+
+5. Du, P., et al. (2010). Comparison of Beta-value and M-value methods for quantifying methylation levels by microarray analysis. *BMC Bioinformatics*, 11(1). doi:[10.1186/1471-2105-11-587](https://doi.org/10.1186/1471-2105-11-587)
+
+6. Introduction to DNA Methylation Analysis — methylprep documentation. Available at: [life-epigenetics-methylprep.readthedocs-hosted.com](https://life-epigenetics-methylprep.readthedocs-hosted.com/en/latest/docs/introduction/introduction.html)
+
+7. Staley, J.R., et al. (2018). Longitudinal analysis strategies for modelling epigenetic trajectories. *International Journal of Epidemiology*, 47(2), pp.516–525. doi:[10.1093/ije/dyy012](https://doi.org/10.1093/ije/dyy012)
+
+8. False Discovery Rate | Columbia Public Health. Available at: [publichealth.columbia.edu/research/population-health-methods/false-discovery-rate](https://www.publichealth.columbia.edu/research/population-health-methods/false-discovery-rate)
+
+9. Armstrong, R.A. (2014). When to use the Bonferroni correction. *Ophthalmic and Physiological Optics*, 34(5), pp.502–508. doi:[10.1111/opo.12131](https://doi.org/10.1111/opo.12131)
+
+:::

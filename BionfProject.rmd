@@ -1476,7 +1476,7 @@ All endpoints use try-catch blocks to gracefully handle errors:
 - **Single cohort**: Requires validation on independent datasets (GSE59685, GSE80970)
 - **Brain tissue only**: Clinical utility depends on validating in accessible biofluids (blood, CSF)
 
-That said, this API represents the critical translation step from research finding to clinical decision support tool, making advanced epigenetic analysis accessible at the point of care.
+This said, this API represents the critical translation step from research finding to clinical decision support tool, making advanced epigenetic analysis accessible at the point of care.
 
 ------------------------------------------------------------------------
 

@@ -509,52 +509,6 @@ Marco Banfi, Simone Carrieri, Tomás Serra
 </div>
 </div></div>
 </section>
-<section id="model-deployment-for-api" class="slide level2 smaller">
-<h2>Model Deployment for API</h2>
-<div class="columns">
-<div class="column" style="width:46%;">
-<p><strong>API Package</strong></p>
-<p>📦 <code>alzheimers_model_api.rds</code>:</p>
-<ol type="1">
-<li>Trained model</li>
-<li>5 required CpGs</li>
-<li>Interpretation (β, OR, CI)</li>
-<li>Performance metrics</li>
-<li>Helper functions</li>
-</ol>
-<p><strong>Required Inputs</strong></p>
-<ul>
-<li>M-values for 5 CpGs</li>
-<li>Age, Sex, Cell type, Region</li>
-</ul>
-</div><div class="column" style="width:54%;">
-<p><strong>Usage Example</strong></p>
-<div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href=""></a><span class="co"># Load model</span></span>
-<span id="cb1-2"><a href=""></a>model_pkg <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">'alzheimers_model_api.rds'</span>)</span>
-<span id="cb1-3"><a href=""></a></span>
-<span id="cb1-4"><a href=""></a><span class="co"># Prepare sample</span></span>
-<span id="cb1-5"><a href=""></a>new_data <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb1-6"><a href=""></a>  <span class="at">M_1 =</span> <span class="sc">-</span><span class="fl">2.1</span>, <span class="at">M_2 =</span> <span class="fl">1.8</span>,</span>
-<span id="cb1-7"><a href=""></a>  <span class="co"># ... other M-values</span></span>
-<span id="cb1-8"><a href=""></a>  <span class="at">age =</span> <span class="dv">78</span>, <span class="at">sex =</span> <span class="st">"Female"</span>,</span>
-<span id="cb1-9"><a href=""></a>  <span class="at">cell_type =</span> <span class="st">"bulk"</span>,</span>
-<span id="cb1-10"><a href=""></a>  <span class="at">region =</span> <span class="st">"frontal cortex"</span></span>
-<span id="cb1-11"><a href=""></a>)</span>
-<span id="cb1-12"><a href=""></a></span>
-<span id="cb1-13"><a href=""></a><span class="co"># Predict</span></span>
-<span id="cb1-14"><a href=""></a>prob <span class="ot">&lt;-</span> <span class="fu">predict</span>(model_pkg<span class="sc">$</span>model, </span>
-<span id="cb1-15"><a href=""></a>                new_data, </span>
-<span id="cb1-16"><a href=""></a>                <span class="at">type =</span> <span class="st">"response"</span>)</span>
-<span id="cb1-17"><a href=""></a></span>
-<span id="cb1-18"><a href=""></a><span class="co"># Interpret</span></span>
-<span id="cb1-19"><a href=""></a><span class="cf">if</span> (prob <span class="sc">&gt;</span> <span class="fl">0.5</span>) {</span>
-<span id="cb1-20"><a href=""></a>  <span class="fu">paste</span>(<span class="st">"AD predicted:"</span>, </span>
-<span id="cb1-21"><a href=""></a>        <span class="fu">round</span>(prob<span class="sc">*</span><span class="dv">100</span>, <span class="dv">1</span>), <span class="st">"%"</span>)</span>
-<span id="cb1-22"><a href=""></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-</div></div>
-</section>
 <section id="summary-conclusions" class="slide level2 center">
 <h2>Summary &amp; Conclusions</h2>
 <div class="highlight-box" style="margin: 40px auto; max-width: 900px; padding: 18px;">
@@ -602,188 +556,39 @@ Marco Banfi, Simone Carrieri, Tomás Serra
 </div>
 </div></div>
 </section>
-<section id="api-endpoints-overview" class="slide level2 smaller">
-<h2>API Endpoints Overview</h2>
-<table class="caption-top">
-<colgroup>
-<col style="width: 25%">
-<col style="width: 20%">
-<col style="width: 23%">
-<col style="width: 30%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>Endpoint</th>
-<th>Method</th>
-<th>Purpose</th>
-<th>Key Output</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><code>/health</code></td>
-<td>GET</td>
-<td>System status</td>
-<td>Server health, model loaded</td>
-</tr>
-<tr class="even">
-<td><code>/model-info</code></td>
-<td>GET</td>
-<td>Model details</td>
-<td>Performance metrics, requirements</td>
-</tr>
-<tr class="odd">
-<td><code>/cpg-importance</code></td>
-<td>GET</td>
-<td>Biomarker ranking</td>
-<td>Odds ratios, effect directions</td>
-</tr>
-<tr class="even">
-<td><strong><code>/predict</code></strong></td>
-<td><strong>POST</strong></td>
-<td><strong>Risk prediction</strong></td>
-<td><strong>AD probability, risk level</strong></td>
-</tr>
-<tr class="odd">
-<td><code>/dataset-stats</code></td>
-<td>GET</td>
-<td>Training data info</td>
-<td>Dataset source, methodology</td>
-</tr>
-<tr class="even">
-<td><code>/convert-beta-to-m</code></td>
-<td>POST</td>
-<td>Value conversion</td>
-<td>M-values from beta-values</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Interactive docs:</strong> <code>http://localhost:8000/__docs__/</code></p>
-</section>
-<section id="prediction-endpoint" class="slide level2 smaller">
-<h2>Prediction Endpoint</h2>
+<section id="core-functionality-handoff" class="slide level2 smaller">
+<h2>Core Functionality &amp; Handoff</h2>
 <div class="columns">
 <div class="column" style="width:48%;">
-<p><strong>Input (JSON)</strong></p>
+<p><strong>Deliverable</strong></p>
+<p>REST API using <code>plumber</code> for model accessibility</p>
+<p><strong>Purpose</strong></p>
+<p>Enable integration into applications (e.g., Shiny dashboard) without R/modeling expertise</p>
+<p><strong>Main Endpoint: <code>/predict</code></strong></p>
+<p>Accepts patient data, returns AD risk prediction with clinical recommendations</p>
+<p><strong>Additional Endpoints:</strong> - <code>/model-info</code> - Model specifications - <code>/cpg-importance</code> - Biomarker ranking<br>
+- <code>/convert-beta-to-m</code> - Data preprocessing - <code>/health</code> - System status</p>
+</div><div class="column" style="width:52%;">
+<p><strong>Example: <code>/predict</code> Endpoint</strong></p>
+<p>Input (JSON):</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode numberSource json number-lines code-with-copy"><code class="sourceCode json"><span id="cb1-1"><a href=""></a><span class="fu">{</span></span>
+<span id="cb1-2"><a href=""></a>  <span class="dt">"M_values"</span><span class="fu">:</span> <span class="ot">[</span><span class="fl">0.5</span><span class="ot">,</span> <span class="fl">-1.2</span><span class="ot">,</span> <span class="fl">2.3</span><span class="ot">,</span> </span>
+<span id="cb1-3"><a href=""></a>               <span class="fl">0.8</span><span class="ot">,</span> <span class="fl">-0.5</span><span class="ot">,</span> <span class="fl">1.1</span><span class="ot">,</span> </span>
+<span id="cb1-4"><a href=""></a>               <span class="fl">0.3</span><span class="ot">,</span> <span class="fl">-0.9</span><span class="ot">,</span> <span class="fl">1.5</span><span class="ot">,</span> <span class="fl">0.2</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb1-5"><a href=""></a>  <span class="dt">"age"</span><span class="fu">:</span> <span class="dv">75</span><span class="fu">,</span></span>
+<span id="cb1-6"><a href=""></a>  <span class="dt">"sex"</span><span class="fu">:</span> <span class="st">"M"</span><span class="fu">,</span></span>
+<span id="cb1-7"><a href=""></a>  <span class="dt">"cell_type"</span><span class="fu">:</span> <span class="st">"neuron"</span><span class="fu">,</span></span>
+<span id="cb1-8"><a href=""></a>  <span class="dt">"region"</span><span class="fu">:</span> <span class="st">"frontal cortex"</span></span>
+<span id="cb1-9"><a href=""></a><span class="fu">}</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>Output:</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode numberSource json number-lines code-with-copy"><code class="sourceCode json"><span id="cb2-1"><a href=""></a><span class="fu">{</span></span>
-<span id="cb2-2"><a href=""></a>  <span class="dt">"M_values"</span><span class="fu">:</span> <span class="ot">[</span><span class="fl">0.5</span><span class="ot">,</span> <span class="fl">-1.2</span><span class="ot">,</span> <span class="fl">2.3</span><span class="ot">,</span> </span>
-<span id="cb2-3"><a href=""></a>               <span class="fl">0.8</span><span class="ot">,</span> <span class="fl">-0.5</span><span class="ot">,</span> <span class="fl">1.1</span><span class="ot">,</span> </span>
-<span id="cb2-4"><a href=""></a>               <span class="fl">0.3</span><span class="ot">,</span> <span class="fl">-0.9</span><span class="ot">,</span> <span class="fl">1.5</span><span class="ot">,</span> <span class="fl">0.2</span><span class="ot">]</span><span class="fu">,</span></span>
-<span id="cb2-5"><a href=""></a>  <span class="dt">"age"</span><span class="fu">:</span> <span class="dv">75</span><span class="fu">,</span></span>
-<span id="cb2-6"><a href=""></a>  <span class="dt">"sex"</span><span class="fu">:</span> <span class="st">"M"</span><span class="fu">,</span></span>
-<span id="cb2-7"><a href=""></a>  <span class="dt">"cell_type"</span><span class="fu">:</span> <span class="st">"neuron"</span><span class="fu">,</span></span>
-<span id="cb2-8"><a href=""></a>  <span class="dt">"region"</span><span class="fu">:</span> <span class="st">"frontal cortex"</span></span>
-<span id="cb2-9"><a href=""></a><span class="fu">}</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<p><strong>Risk Stratification</strong></p>
-<ul>
-<li><strong>LOW</strong> (&lt; 30%): Standard follow-up</li>
-<li><strong>MODERATE</strong> (30-70%): Additional testing</li>
-<li><strong>HIGH</strong> (≥ 70%): Comprehensive evaluation</li>
-</ul>
-</div><div class="column" style="width:52%;">
-<p><strong>Output</strong></p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode numberSource json number-lines code-with-copy"><code class="sourceCode json"><span id="cb3-1"><a href=""></a><span class="fu">{</span></span>
-<span id="cb3-2"><a href=""></a>  <span class="dt">"prediction"</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb3-3"><a href=""></a>    <span class="dt">"probability"</span><span class="fu">:</span> <span class="fl">0.78</span><span class="fu">,</span></span>
-<span id="cb3-4"><a href=""></a>    <span class="dt">"probability_percent"</span><span class="fu">:</span> <span class="st">"78.0%"</span><span class="fu">,</span></span>
-<span id="cb3-5"><a href=""></a>    <span class="dt">"risk_level"</span><span class="fu">:</span> <span class="st">"HIGH"</span><span class="fu">,</span></span>
-<span id="cb3-6"><a href=""></a>    <span class="dt">"recommendation"</span><span class="fu">:</span> <span class="st">"Comprehensive </span></span>
-<span id="cb3-7"><a href=""></a><span class="st">      neurological evaluation </span></span>
-<span id="cb3-8"><a href=""></a><span class="st">      strongly recommended"</span></span>
-<span id="cb3-9"><a href=""></a>  <span class="fu">},</span></span>
-<span id="cb3-10"><a href=""></a>  <span class="dt">"model_confidence"</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb3-11"><a href=""></a>    <span class="dt">"accuracy"</span><span class="fu">:</span> <span class="st">"92.7%"</span><span class="fu">,</span></span>
-<span id="cb3-12"><a href=""></a>    <span class="dt">"sensitivity"</span><span class="fu">:</span> <span class="st">"90.0%"</span></span>
-<span id="cb3-13"><a href=""></a>  <span class="fu">}</span></span>
-<span id="cb3-14"><a href=""></a><span class="fu">}</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<p>Enables point-of-care decision support</p>
+<span id="cb2-2"><a href=""></a>  <span class="dt">"probability"</span><span class="fu">:</span> <span class="fl">0.78</span><span class="fu">,</span></span>
+<span id="cb2-3"><a href=""></a>  <span class="dt">"risk_level"</span><span class="fu">:</span> <span class="st">"HIGH"</span><span class="fu">,</span></span>
+<span id="cb2-4"><a href=""></a>  <span class="dt">"recommendation"</span><span class="fu">:</span> <span class="st">"Comprehensive </span></span>
+<span id="cb2-5"><a href=""></a><span class="st">    neurological evaluation"</span></span>
+<span id="cb2-6"><a href=""></a><span class="fu">}</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div></div>
-</section>
-<section id="data-validation-pipeline" class="slide level2 smaller">
-<h2>Data Validation Pipeline</h2>
-<div class="cell" data-layout-align="center">
-<div class="cell-output-display">
-<div class="grViz html-widget html-fill-item" id="htmlwidget-8e1fe96c0688a849169a" style="width:1248px;height:307.2px;"></div>
-<script type="application/json" data-for="htmlwidget-8e1fe96c0688a849169a">{"x":{"diagram":"\ndigraph Pipeline {\n  graph [rankdir=LR, bgcolor=\"transparent\", size=\"13,3.2!\"]\n  node [shape=box, style=\"rounded,filled\", fontname=\"Arial\", fontsize=8.5, height=0.45, width=1.1]\n  \n  A [label=\"HTTP\nRequest\n(JSON)\", fillcolor=\"#E3F2FD\"]\n  B [label=\"Parse\nJSON\", fillcolor=\"#FFF9E6\"]\n  C [label=\"Validate\nInputs\", fillcolor=\"#FFE5B4\", shape=diamond, width=1.2]\n  D [label=\"Create\nData Frame\", fillcolor=\"#FFD4A3\"]\n  E [label=\"Model\nPrediction\", fillcolor=\"#FFC292\"]\n  F [label=\"Post-process\nRisk Category\", fillcolor=\"#FFB081\"]\n  G [label=\"Format\nResponse\", fillcolor=\"#C8E6C9\"]\n  H [label=\"JSON\nResponse\", fillcolor=\"#E3F2FD\"]\n  \n  Error [label=\"Error\nHandler\n400/500\", fillcolor=\"#FFCDD2\", shape=ellipse, width=1.1]\n  \n  A -> B -> C\n  C -> D [label=\"Valid\"]\n  C -> Error [label=\"Invalid\"]\n  D -> E -> F -> G -> H\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
-</div>
-</div>
-<p><strong>Validation:</strong> Exact M-values (5 CpGs) • Covariates present • Factor levels match • Type conversion</p>
-</section>
-<section id="usage-example-python" class="slide level2 smaller">
-<h2>Usage Example: Python</h2>
-<div class="columns">
-<div class="column" style="width:50%;">
-<div class="sourceCode" id="cb4"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href=""></a><span class="im">import</span> requests</span>
-<span id="cb4-2"><a href=""></a></span>
-<span id="cb4-3"><a href=""></a><span class="co"># Step 1: Convert Beta to M-values</span></span>
-<span id="cb4-4"><a href=""></a>beta_response <span class="op">=</span> requests.post(</span>
-<span id="cb4-5"><a href=""></a>    <span class="st">"http://localhost:8000/convert-beta-to-m"</span>,</span>
-<span id="cb4-6"><a href=""></a>    json<span class="op">=</span>{</span>
-<span id="cb4-7"><a href=""></a>        <span class="st">"beta_values"</span>: [<span class="fl">0.52</span>, <span class="fl">0.68</span>, <span class="fl">0.45</span>, </span>
-<span id="cb4-8"><a href=""></a>                       <span class="fl">0.71</span>, <span class="fl">0.38</span>, <span class="fl">0.64</span>, </span>
-<span id="cb4-9"><a href=""></a>                       <span class="fl">0.49</span>, <span class="fl">0.58</span>, <span class="fl">0.67</span>, <span class="fl">0.42</span>]</span>
-<span id="cb4-10"><a href=""></a>    }</span>
-<span id="cb4-11"><a href=""></a>)</span>
-<span id="cb4-12"><a href=""></a>m_values <span class="op">=</span> beta_response.json()[<span class="st">"m_values"</span>]</span>
-<span id="cb4-13"><a href=""></a></span>
-<span id="cb4-14"><a href=""></a><span class="co"># Step 2: Make prediction</span></span>
-<span id="cb4-15"><a href=""></a>prediction <span class="op">=</span> requests.post(</span>
-<span id="cb4-16"><a href=""></a>    <span class="st">"http://localhost:8000/predict"</span>,</span>
-<span id="cb4-17"><a href=""></a>    json<span class="op">=</span>{</span>
-<span id="cb4-18"><a href=""></a>        <span class="st">"M_values"</span>: m_values,</span>
-<span id="cb4-19"><a href=""></a>        <span class="st">"age"</span>: <span class="dv">75</span>,</span>
-<span id="cb4-20"><a href=""></a>        <span class="st">"sex"</span>: <span class="st">"M"</span>, </span>
-<span id="cb4-21"><a href=""></a>        <span class="st">"cell_type"</span>: <span class="st">"neuron"</span>,</span>
-<span id="cb4-22"><a href=""></a>        <span class="st">"region"</span>: <span class="st">"frontal cortex"</span></span>
-<span id="cb4-23"><a href=""></a>    }</span>
-<span id="cb4-24"><a href=""></a>)</span>
-<span id="cb4-25"><a href=""></a></span>
-<span id="cb4-26"><a href=""></a>result <span class="op">=</span> prediction.json()</span>
-<span id="cb4-27"><a href=""></a><span class="bu">print</span>(<span class="ss">f"Risk: </span><span class="sc">{</span>result[<span class="st">'prediction'</span>][<span class="st">'risk_level'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb4-28"><a href=""></a><span class="bu">print</span>(<span class="ss">f"Prob: </span><span class="sc">{</span>result[<span class="st">'prediction'</span>][<span class="st">'probability_percent'</span>]<span class="sc">}</span><span class="ss">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div><div class="column" style="width:50%;">
-<p><strong>Starting Server</strong></p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href=""></a><span class="fu">library</span>(plumber)</span>
-<span id="cb5-2"><a href=""></a></span>
-<span id="cb5-3"><a href=""></a>pr <span class="ot">&lt;-</span> plumber<span class="sc">::</span><span class="fu">pr</span>(<span class="st">"APIFinalProject.r"</span>)</span>
-<span id="cb5-4"><a href=""></a>plumber<span class="sc">::</span><span class="fu">pr_run</span>(pr, <span class="at">port =</span> <span class="dv">8000</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<p><strong>Benefits</strong></p>
-<p>✓ Language-agnostic<br>
-✓ Clinical systems integration<br>
-✓ Real-time (&lt; 100ms)<br>
-✓ Scalable</p>
-<div class="success-box" style="padding: 6px; margin-top: 12px;">
-<p>Research → Clinical tool</p>
-</div>
-</div></div>
-</section>
-<section id="api-limitations-deployment" class="slide level2 smaller">
-<h2>API Limitations &amp; Deployment</h2>
-<div class="columns">
-<div class="column" style="width:48%;">
-<p><strong>Current Limitations</strong></p>
-<p>⚠ <strong>Post-mortem data</strong><br>
-- Brain tissue from deceased - Generalization unvalidated</p>
-<p>⚠ <strong>Single cohort</strong><br>
-- Independent validation needed</p>
-<p>⚠ <strong>Brain tissue only</strong><br>
-- Blood/CSF validation required</p>
-<p>⚠ <strong>No longitudinal data</strong></p>
-</div><div class="column" style="width:52%;">
-<p><strong>Production Requirements</strong></p>
-<ul>
-<li>HIPAA-compliant infrastructure</li>
-<li>SSL/TLS encryption</li>
-<li>Authentication &amp; authorization</li>
-<li>Rate limiting</li>
-<li>Logging &amp; monitoring</li>
-<li>Model retraining</li>
-</ul>
-<p><strong>Next Steps:</strong> 1. Validate on GSE59685, GSE80970 2. Test on accessible biofluids 3. Longitudinal studies 4. Clinical workflow integration</p>
-</div></div>
-<div class="highlight-box" style="padding: 8px; margin-top: 12px;">
-<p><strong>Impact:</strong> Critical translation step — research to clinical decision support</p>
-</div>
+<p><strong>Status:</strong> ✓ API deployed at <code>localhost:8000</code> — Ready for Shiny integration</p>
 </section>
 <section class="slide level2">
 
@@ -802,15 +607,25 @@ Marco Banfi, Simone Carrieri, Tomás Serra
 ✓ Stringent validation: Bonferroni + covariate control<br>
 ✓ <strong>Clinical translation: REST API for real-time predictions</strong></p>
 </div>
-<p><strong>Scientific Impact:</strong> Links DNA methylation to AD pathology</p>
-<p><strong>Clinical Impact:</strong> Foundation for blood-based diagnostics + decision support</p>
-<p><strong>Technical Impact:</strong> Open-source API enables broader adoption</p>
+<p><strong>1. Scientific Impact:</strong> Links DNA methylation to AD pathology</p>
+<p><strong>2. Clinical Impact:</strong> Foundation for blood-based diagnostics + decision support</p>
+<p><strong>3. Technical Impact:</strong> Open-source API enables broader adoption</p>
 </section>
 <section id="references" class="slide level2 smaller">
 <h2>References</h2>
-</section>
-<section class="slide level2">
-
+<div style="font-size: 0.75em; line-height: 1.4;">
+<ol type="1">
+<li><p>König, T. and Stögmann, E. (2021). Genetics of Alzheimer’s disease. <em>Wiener Medizinische Wochenschrift</em>, 171(11-12). doi:<a href="https://doi.org/10.1007/s10354-021-00819-9">10.1007/s10354-021-00819-9</a></p></li>
+<li><p>Moore, L.D., Le, T. and Fan, G. (2012). DNA Methylation and Its Basic Function. <em>Neuropsychopharmacology</em>, 38(1), pp.23–38. doi:<a href="https://doi.org/10.1038/npp.2012.112">10.1038/npp.2012.112</a></p></li>
+<li><p>Gan, Y., et al.&nbsp;(2025). Exploration and validation of biomarkers for Alzheimer’s disease based on GEO database. <em>IBRO Neuroscience Reports</em>. doi:<a href="https://doi.org/10.1016/j.ibneur.2025.03.006">10.1016/j.ibneur.2025.03.006</a></p></li>
+<li><p>GEO Accession viewer (2024). Available at: <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE66351">ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE66351</a></p></li>
+<li><p>Du, P., et al.&nbsp;(2010). Comparison of Beta-value and M-value methods for quantifying methylation levels by microarray analysis. <em>BMC Bioinformatics</em>, 11(1). doi:<a href="https://doi.org/10.1186/1471-2105-11-587">10.1186/1471-2105-11-587</a></p></li>
+<li><p>Introduction to DNA Methylation Analysis — methylprep documentation. Available at: <a href="https://life-epigenetics-methylprep.readthedocs-hosted.com/en/latest/docs/introduction/introduction.html">life-epigenetics-methylprep.readthedocs-hosted.com</a></p></li>
+<li><p>Staley, J.R., et al.&nbsp;(2018). Longitudinal analysis strategies for modelling epigenetic trajectories. <em>International Journal of Epidemiology</em>, 47(2), pp.516–525. doi:<a href="https://doi.org/10.1093/ije/dyy012">10.1093/ije/dyy012</a></p></li>
+<li><p>False Discovery Rate | Columbia Public Health. Available at: <a href="https://www.publichealth.columbia.edu/research/population-health-methods/false-discovery-rate">publichealth.columbia.edu/research/population-health-methods/false-discovery-rate</a></p></li>
+<li><p>Armstrong, R.A. (2014). When to use the Bonferroni correction. <em>Ophthalmic and Physiological Optics</em>, 34(5), pp.502–508. doi:<a href="https://doi.org/10.1111/opo.12131">10.1111/opo.12131</a></p></li>
+</ol>
+</div>
 
 </section></section>
     </div>

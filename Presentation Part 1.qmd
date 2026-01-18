@@ -787,8 +787,7 @@ Output:
 {
   "probability": 0.78,
   "risk_level": "HIGH",
-  "recommendation": "Comprehensive 
-    neurological evaluation"
+  "recommendation": "Highly consistent with AD pathology."
 }
 ```
 :::

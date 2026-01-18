@@ -1351,6 +1351,13 @@ Generates Alzheimer's risk prediction for individual patients.
 - Model confidence metrics
 
 
+**Risk stratification:**
+
+- **LOW** (< 30%): The DNA methylation profile matches healthy control tissue. Suggests absence of AD-specific epigenetic alterations.
+- **MODERATE** (30-70%): Methylation patterns are intermediate. Correlate with Braak staging and histopathology for confirmation.
+- **HIGH** (≥ 70%): The molecular profile is highly consistent with Alzheimer's Disease pathology. Supports a retrospective molecular diagnosis of AD.
+
+
 ### **5. Dataset Statistics (`GET /dataset-stats`)**
 
 Documents training data provenance:

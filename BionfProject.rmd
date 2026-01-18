@@ -1282,15 +1282,15 @@ To make our predictive model accessible to clinicians without requiring R expert
 
 ### **API Source Code**
 
-The complete API implementation is stored in `APIFinalProject.r`:
+The complete API implementation is stored in `API Part 1.r` (see first 25 lines):
 
 ```{r api-code-display, echo=FALSE, comment=''}
 # Display the first 25 lines of the API source code in the report
-if (file.exists("APIFinalProject.r")) {
-  api_code <- readLines("APIFinalProject.r")
+if (file.exists("API Part 1.r")) {
+  api_code <- readLines("API Part 1.r")
   cat(paste(api_code[1:min(25, length(api_code))], collapse = "\n"))
 } else {
-  cat("Error: APIFinalProject.r not found in the working directory.")
+  cat("Error: API Part 1.r not found in the working directory.")
 }
 ```
 
@@ -1391,7 +1391,7 @@ Landing page with endpoint overview and example curl commands.
 library(plumber)
 
 # Load and run the API
-pr <- plumber::pr("APIFinalProject.r")
+pr <- plumber::pr("API Part 1.r")
 plumber::pr_run(pr, port = 8000)
 ```
 

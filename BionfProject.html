@@ -2362,32 +2362,8 @@ standard HTTP requests.</p>
 <h3><span class="header-section-number">8.1.1</span> <strong>API Source
 Code</strong></h3>
 <p>The complete API implementation is stored in
-<code>APIFinalProject.r</code>:</p>
-<pre><code># ============================================================================
-# ALZHEIMER&#39;S PREDICTION API - R Plumber
-# ============================================================================
-# This file creates a REST API that physicians can use to obtain
-# Alzheimer&#39;s disease predictions based on DNA methylation data
-#
-# INITIAL SETUP:
-# 1. Run your main analysis script first to train the model
-# 2. The analysis saves: alzheimers_model.rds and selected_cpgs.rds
-# 3. Start the API with: plumber::pr_run(plumber::pr(&quot;api.R&quot;), port=8000)
-# ============================================================================
-
-library(plumber)
-library(jsonlite)
-library(dplyr)
-
-# ============================================================================
-# LOAD PRE-TRAINED MODEL AND DATA
-# ============================================================================
-# The main analysis script saves the model as &quot;alzheimers_model.rds&quot;
-# We need to prepare the API-compatible version with all necessary data
-
-# Load the model and selected CpGs
-model &lt;- readRDS(&quot;alzheimers_model.rds&quot;)
-top_cpgs &lt;- readRDS(&quot;selected_cpgs.rds&quot;)</code></pre>
+<code>API Part 1.r</code> (see first 25 lines):</p>
+<pre><code>Error: API Part 1.r not found in the working directory.</code></pre>
 <hr />
 </div>
 </div>
@@ -2494,7 +2470,7 @@ the API Server</strong></h3>
 <pre class="r"><code>library(plumber)
 
 # Load and run the API
-pr &lt;- plumber::pr(&quot;APIFinalProject.r&quot;)
+pr &lt;- plumber::pr(&quot;API Part 1.r&quot;)
 plumber::pr_run(pr, port = 8000)</code></pre>
 <p>The server starts at <code>http://localhost:8000</code> with
 interactive documentation at

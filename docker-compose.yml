@@ -1,0 +1,41 @@
+# ==============================================================================
+# DOCKER COMPOSE ORCHESTRATION
+# ==============================================================================
+# PROJECT: Alzheimer's Prediction Tool
+# AUTHORS: Carmen Caltagirone, Marc Verdaguer, Maria Artigas
+# DESCRIPTION: Defines the multi-container architecture.
+#              - Service 'api_service': Runs the predictive model (Backend)
+#              - Service 'shiny_service': Runs the user interface (Frontend)
+# ==============================================================================
+
+services:
+  # --- BACKEND SERVICE (Predictive Model) ---
+  api_service:
+    build: ./api                 # Context: Folder containing API Dockerfile
+    container_name: alzheimers_api_container
+    ports:
+      - "8000:8000"              # Host Port : Container Port
+    networks:
+      - bio_network
+    restart: always              # Auto-restart on failure
+
+  # --- FRONTEND SERVICE (User Interface) ---
+  shiny_service:
+    build: ./shiny_app           # Context: Folder containing Shiny Dockerfile
+    container_name: alzheimers_shiny_container
+    ports:
+      - "3838:3838"              # Host Port : Container Port
+    networks:
+      - bio_network
+    environment:
+      # DYNAMIC CONFIGURATION:
+      # We inject the internal network address of the API service.
+      # The Shiny app reads this via Sys.getenv("API_URL").
+      - API_URL=http://api_service:8000
+    depends_on:
+      - api_service              # Wait for API to start before launching UI
+
+# --- NETWORK CONFIGURATION ---
+networks:
+  bio_network:
+    driver: bridge

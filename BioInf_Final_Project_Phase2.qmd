@@ -22,7 +22,11 @@ editor: visual
 
 # **Introduction**
 
-Phase 2 extends the Phase 1 predictive service (Plumber API + trained logistic regression model) by adding a Shiny user interface that consumes the API strictly as a black box, and by providing a reproducible deployment with two interconnected Docker containers (API + Shiny). No changes are introduced to the trained model or the inference logic; the focus is on usability, integration, and deployment reproducibility.
+Option 1) We first carried out a short issue management step to identify the main open issues in the exchanged project and prioritize the fixes. We then extend the Phase 1 predictive service (Plumber API + trained logistic regression model) by adding a Shiny user interface and a fully reproducible deployment based on two interconnected Docker containers (API + Shiny). We keep the Phase 1 model and inference logic unchanged: in Phase 2, we treat the API as a black box and focus on usability, clean integration, and portability across environments. The UI collects patient inputs, performs basic validation, sends a JSON request to /predict, and presents the returned death probability clearly (including a simple risk bucket for presentation), while the API remains responsible for loading the unchanged model from model/model_logistic_DEATH_EVENT.rds and producing predictions.
+
+Option 2) Phase 2 extends the Phase 1 predictive service (Plumber API + trained logistic regression model) by adding a Shiny user interface that consumes the API strictly as a black box, and by providing a reproducible deployment with two interconnected Docker containers (API + Shiny). After the issue management phase, no changes are introduced to the trained model or the inference logic; the focus is on usability, integration, and deployment reproducibility.
+
+***Deliverable Summary*** 
 
 In this deliverable we provide:
 
@@ -32,27 +36,7 @@ In this deliverable we provide:
 
 - a reproducible deployment via two Docker containers (API + Shiny) orchestrated with `docker compose`;
 
-- a practical execution and verification workflow (local run and GitHub Codespaces with port forwarding).
-
-
-## **Phase 2 Goal**
-
-Phase 2 aims to make the Phase 1 model usable and reproducible by:
-
--   providing a **graphical interface** (Shiny) for non-technical usage,
--   ensuring a **consistent, portable deployment** using **Docker containers**,
--   preserving a **clean separation of concerns**:
-    -   API performs inference and returns predictions.
-    -   UI only handles input validation and result presentation.
-
-## **Scope and Constraints**
-
--   The predictive model is treated as a **black box** in Phase 2.
--   The model file remains unchanged and is loaded from:
-    -   `model/model_logistic_DEATH_EVENT.rds`.
--   The Shiny application does not contain model parameters, coefficients, or training logic.
-
-------------------------------------------------------------------------
+- a practical execution and verification workflow (GitHub Codespaces with port forwarding).
 
 # **Architecture**
 
@@ -317,7 +301,7 @@ if (file.exists(f)) {
 
 # **Some challenges & Solutions**
 
-## **Docker build fails (R packages missing)**
+**Docker build fails (R packages missing)**
 
 If logs show errors such as:
 
@@ -350,7 +334,7 @@ docker compose logs --tail=120 api
 docker compose logs --tail=120 shiny
 ```
 
-## **UI shows API unreachable**
+**UI shows API unreachable**
 
 Verify both containers are running:
 
@@ -360,26 +344,27 @@ docker compose ps -a
 
 Inside Docker, the UI must call the API using `http://api:8000` (not `localhost`).
 
-## **Hostname api cannot be resolved**
+**Hostname api cannot be resolved**
 
 This happens when running the Shiny app outside Docker. Use Docker Compose, or set:
 
 -   `API_BASE_URL=http://127.0.0.1:8000`
 
-## **Port already in use**
+**Port already in use**
 
 If ports 8000 or 3838 are occupied on the host, stop the conflicting process or change mappings in `docker-compose.yml` (e.g., `"8001:8000"`).
 
-## **`curl` shows malformed input / bad hostname**
+**`curl` shows malformed input / bad hostname**
 
 This typically comes from incorrect line breaks. Use a single-line `curl` command or ensure `\` is the final character on each continued line.
 
-## **Shiny fails to start after editing app.R**
+**Shiny fails to start after editing app.R**
 
 A frequent cause is an R parsing error (e.g., unbalanced quotes). Inspect logs:
 
 ``` bash
 docker compose logs -f shiny
 ```
+
 
 

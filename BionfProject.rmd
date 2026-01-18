@@ -1282,23 +1282,15 @@ To make our predictive model accessible to clinicians without requiring R expert
 
 ### **API Source Code**
 
-The following is a preview of the API implementation stored in `APIFinalProject.r`:
+The complete API implementation is stored in `APIFinalProject.r`:
 
 ```{r api-code-display, echo=FALSE, comment=''}
-if(file.exists("APIFinalProject.r")) {
-  # Read the file
+# Display the first 25 lines of the API source code in the report
+if (file.exists("APIFinalProject.r")) {
   api_code <- readLines("APIFinalProject.r")
-  
-  # Select only the first 50 lines
-  preview_lines <- head(api_code, 25)
-  
-  # Print the preview
-  cat(paste(preview_lines, collapse = "\n"))
-  
-  # Add a visual indicator that the code is truncated
-  cat("\n\n# ... [Rest of code truncated for brevity. See APIFinalProject.r for full implementation] ...")
+  cat(paste(api_code[1:min(25, length(api_code))], collapse = "\n"))
 } else {
-  cat("Error: APIFinalProject.r not found.")
+  cat("Error: APIFinalProject.r not found in the working directory.")
 }
 ```
 
@@ -1311,6 +1303,7 @@ The API provides seven endpoints for different functionalities:
 ### **1. Health Check (`GET /health`)**
 
 Verifies the API is running and the model loaded correctly.
+
 ```bash
 curl http://localhost:8000/health
 ```
@@ -1335,7 +1328,7 @@ Ranks methylation markers by their contribution to predictions:
 - Statistical significance levels
 - Top 5 most important markers
 
-### **4. Patient Prediction (`POST /predict`)** *Core Endpoint**
+### **4. Patient Prediction (`POST /predict`)** **- Core Endpoint**
 
 Generates Alzheimer's risk prediction for individual patients.
 
@@ -1375,6 +1368,7 @@ Documents training data provenance:
 ### **6. Beta to M-value Conversion (`POST /convert-beta-to-m`)**
 
 Helper endpoint for preprocessing methylation data:
+
 ```json
 {
   "beta_values": [0.5, 0.75, 0.25, 0.9, 0.1]
@@ -1392,6 +1386,7 @@ Landing page with endpoint overview and example curl commands.
 ## **How to Deploy and Use**
 
 ### **Starting the API Server**
+
 ```r
 library(plumber)
 
@@ -1403,6 +1398,7 @@ plumber::pr_run(pr, port = 8000)
 The server starts at `http://localhost:8000` with interactive documentation at `http://localhost:8000/__docs__/`
 
 ### **Example Usage (Python)**
+
 ```python
 import requests
 
@@ -1435,6 +1431,22 @@ print(f"Probability: {result['prediction']['probability_percent']}")
 
 ## **Implementation Details**
 
+### **Required Files:**
+1. `alzheimers_model.rds` - Trained logistic regression model
+2. `selected_cpgs.rds` - List of `r length(top_cpgs)` selected CpG sites
+3. `alzheimers_model_api.rds` - Complete API data package including:
+   - Model object
+   - CpG site list
+   - Coefficient interpretation (β, OR, CI, p-values)
+   - Performance metrics (train and test)
+   - Beta-to-M conversion function
+   - Confusion matrices
+
+### **Required R Packages:**
+- `plumber` - API framework
+- `jsonlite` - JSON parsing
+- `stats` - Model prediction
+
 ### **Data Validation**
 
 The API performs comprehensive input validation:
@@ -1461,22 +1473,60 @@ For each prediction request:
 
 ### **Error Handling**
 
-All endpoints use try-catch blocks to gracefully handle errors:
+All endpoints implement comprehensive error handling:
 
-- Invalid JSON → 400 Bad Request with explanation
-- Missing required fields → 400 with list of required fields
-- Mismatched factor levels → 400 with valid options
-- Server errors → 500 with error details (without exposing internal code)
+| Error Type | HTTP Status | Response |
+|------------|-------------|----------|
+| Invalid JSON | 400 | "Invalid JSON format" + details |
+| Missing fields | 400 | List of required fields |
+| Wrong data type | 400 | Expected vs. actual type |
+| Invalid factor level | 400 | Valid options for categorical variables |
+| Wrong array length | 400 | Expected number of M-values |
+| Server error | 500 | Generic error message (no internal details exposed) |
+
+All errors return JSON with:
+```json
+{
+  "error": "Error description",
+  "details": "Specific information about what went wrong",
+  "timestamp": "2025-01-17T10:30:00Z"
+}
+```
 
 ---
 
 ## **Model Limitations**
 
-- **Post-mortem training data**: Model trained on brain tissue from deceased patients; generalization to living patients unvalidated
-- **Single cohort**: Requires validation on independent datasets (GSE59685, GSE80970)
-- **Brain tissue only**: Clinical utility depends on validating in accessible biofluids (blood, CSF)
+- **1. Post-mortem training data**: Model trained on brain tissue from deceased patients; generalization to living patients unvalidated
+- **2. Single cohort**: Requires validation on independent datasets (GSE59685, GSE80970)
+- **3. Brain tissue only**: Clinical utility depends on validating in accessible biofluids (blood, CSF)
 
-This said, this API represents the critical translation step from research finding to clinical decision support tool, making advanced epigenetic analysis accessible at the point of care.
+
+---
+
+## **Summary**
+
+The API bridges the gap between statistical modeling and clinical application by:
+
+**1. Abstracting complexity**: Clinicians send simple JSON requests, receive interpretable risk assessments  
+
+**2. Automating preprocessing**: Beta-to-M conversion and data validation handled automatically  
+
+**3. Providing clinical context**: Risk stratification and evidence-based recommendations included  
+
+**4. Enabling integration**: Standard HTTP interface compatible with any programming language or system  
+
+**6. Ensuring reliability**: Comprehensive input validation prevents errors  
+
+**Deployment pathway:**
+
+1. Validate on independent post-mortem datasets
+2. Test generalization to blood/CSF methylation data  
+3. Conduct prospective clinical validation study
+4. Seek regulatory approval (FDA clearance)
+5. Deploy on secure, compliant infrastructure
+
+This API represents the critical translation step from research finding to clinical decision support tool, making advanced epigenetic analysis accessible at the point of care
 
 ------------------------------------------------------------------------
 

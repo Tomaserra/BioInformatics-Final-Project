@@ -11,7 +11,7 @@
 
 <meta name="author" content="Marco Banfi, Simone Carrieri, Tomás Serra" />
 
-<meta name="date" content="2026-01-17" />
+<meta name="date" content="2026-01-18" />
 
 <title>Alzheimer’s Disease Prediction Using DNA Methylation Markers</title>
 
@@ -359,7 +359,7 @@ display: none;
 <h1 class="title toc-ignore"><strong>Alzheimer’s Disease Prediction
 Using DNA Methylation Markers</strong></h1>
 <h4 class="author">Marco Banfi, Simone Carrieri, Tomás Serra</h4>
-<h4 class="date">2026-01-17</h4>
+<h4 class="date">2026-01-18</h4>
 
 </div>
 
@@ -2361,7 +2361,7 @@ standard HTTP requests.</p>
 <div id="api-source-code" class="section level3" number="8.1.1">
 <h3><span class="header-section-number">8.1.1</span> <strong>API Source
 Code</strong></h3>
-<p>The following is a preview of the API implementation stored in
+<p>The complete API implementation is stored in
 <code>APIFinalProject.r</code>:</p>
 <pre><code># ============================================================================
 # ALZHEIMER&#39;S PREDICTION API - R Plumber
@@ -2387,9 +2387,7 @@ library(dplyr)
 
 # Load the model and selected CpGs
 model &lt;- readRDS(&quot;alzheimers_model.rds&quot;)
-top_cpgs &lt;- readRDS(&quot;selected_cpgs.rds&quot;)
-
-# ... [Rest of code truncated for brevity. See APIFinalProject.r for full implementation] ...</code></pre>
+top_cpgs &lt;- readRDS(&quot;selected_cpgs.rds&quot;)</code></pre>
 <hr />
 </div>
 </div>
@@ -2428,9 +2426,10 @@ Importance (<code>GET /cpg-importance</code>)</strong></h3>
 <li>Top 5 most important markers</li>
 </ul>
 </div>
-<div id="patient-prediction-post-predict-core-endpoint" class="section level3" number="8.2.4">
+<div id="patient-prediction-post-predict---core-endpoint" class="section level3" number="8.2.4">
 <h3><span class="header-section-number">8.2.4</span> <strong>4. Patient
-Prediction (<code>POST /predict</code>)</strong> *Core Endpoint**</h3>
+Prediction (<code>POST /predict</code>)</strong> <strong>- Core
+Endpoint</strong></h3>
 <p>Generates Alzheimer’s risk prediction for individual patients.</p>
 <p><strong>Input format (JSON):</strong></p>
 <pre class="json"><code>{
@@ -2535,8 +2534,36 @@ print(f&quot;Probability: {result[&#39;prediction&#39;][&#39;probability_percent
 <div id="implementation-details" class="section level2" number="8.4">
 <h2><span class="header-section-number">8.4</span>
 <strong>Implementation Details</strong></h2>
-<div id="data-validation" class="section level3" number="8.4.1">
-<h3><span class="header-section-number">8.4.1</span> <strong>Data
+<div id="required-files" class="section level3" number="8.4.1">
+<h3><span class="header-section-number">8.4.1</span> <strong>Required
+Files:</strong></h3>
+<ol style="list-style-type: decimal">
+<li><code>alzheimers_model.rds</code> - Trained logistic regression
+model</li>
+<li><code>selected_cpgs.rds</code> - List of 5 selected CpG sites</li>
+<li><code>alzheimers_model_api.rds</code> - Complete API data package
+including:
+<ul>
+<li>Model object</li>
+<li>CpG site list</li>
+<li>Coefficient interpretation (β, OR, CI, p-values)</li>
+<li>Performance metrics (train and test)</li>
+<li>Beta-to-M conversion function</li>
+<li>Confusion matrices</li>
+</ul></li>
+</ol>
+</div>
+<div id="required-r-packages" class="section level3" number="8.4.2">
+<h3><span class="header-section-number">8.4.2</span> <strong>Required R
+Packages:</strong></h3>
+<ul>
+<li><code>plumber</code> - API framework</li>
+<li><code>jsonlite</code> - JSON parsing</li>
+<li><code>stats</code> - Model prediction</li>
+</ul>
+</div>
+<div id="data-validation" class="section level3" number="8.4.3">
+<h3><span class="header-section-number">8.4.3</span> <strong>Data
 Validation</strong></h3>
 <p>The API performs comprehensive input validation:</p>
 <ul>
@@ -2552,8 +2579,8 @@ appropriate types (numeric/factor)</li>
 <p>If validation fails, the API returns detailed error messages
 indicating which fields are missing or incorrect.</p>
 </div>
-<div id="preprocessing-pipeline" class="section level3" number="8.4.2">
-<h3><span class="header-section-number">8.4.2</span>
+<div id="preprocessing-pipeline" class="section level3" number="8.4.4">
+<h3><span class="header-section-number">8.4.4</span>
 <strong>Preprocessing Pipeline</strong></h3>
 <p>For each prediction request:</p>
 <ol style="list-style-type: decimal">
@@ -2569,17 +2596,62 @@ model coefficients</li>
 <li><strong>Format response</strong> with clinical interpretation</li>
 </ol>
 </div>
-<div id="error-handling" class="section level3" number="8.4.3">
-<h3><span class="header-section-number">8.4.3</span> <strong>Error
+<div id="error-handling" class="section level3" number="8.4.5">
+<h3><span class="header-section-number">8.4.5</span> <strong>Error
 Handling</strong></h3>
-<p>All endpoints use try-catch blocks to gracefully handle errors:</p>
-<ul>
-<li>Invalid JSON → 400 Bad Request with explanation</li>
-<li>Missing required fields → 400 with list of required fields</li>
-<li>Mismatched factor levels → 400 with valid options</li>
-<li>Server errors → 500 with error details (without exposing internal
-code)</li>
-</ul>
+<p>All endpoints implement comprehensive error handling:</p>
+<table>
+<colgroup>
+<col width="34%" />
+<col width="37%" />
+<col width="28%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Error Type</th>
+<th>HTTP Status</th>
+<th>Response</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Invalid JSON</td>
+<td>400</td>
+<td>“Invalid JSON format” + details</td>
+</tr>
+<tr class="even">
+<td>Missing fields</td>
+<td>400</td>
+<td>List of required fields</td>
+</tr>
+<tr class="odd">
+<td>Wrong data type</td>
+<td>400</td>
+<td>Expected vs. actual type</td>
+</tr>
+<tr class="even">
+<td>Invalid factor level</td>
+<td>400</td>
+<td>Valid options for categorical variables</td>
+</tr>
+<tr class="odd">
+<td>Wrong array length</td>
+<td>400</td>
+<td>Expected number of M-values</td>
+</tr>
+<tr class="even">
+<td>Server error</td>
+<td>500</td>
+<td>Generic error message (no internal details exposed)</td>
+</tr>
+</tbody>
+</table>
+<p>All errors return JSON with:</p>
+<pre class="json"><code>{
+  &quot;error&quot;: &quot;Error description&quot;,
+  &quot;details&quot;: &quot;Specific information about what went wrong&quot;,
+  &quot;timestamp&quot;: &quot;2025-01-17T10:30:00Z&quot;
+}</code></pre>
 <hr />
 </div>
 </div>
@@ -2587,17 +2659,43 @@ code)</li>
 <h2><span class="header-section-number">8.5</span> <strong>Model
 Limitations</strong></h2>
 <ul>
-<li><strong>Post-mortem training data</strong>: Model trained on brain
-tissue from deceased patients; generalization to living patients
+<li><strong>1. Post-mortem training data</strong>: Model trained on
+brain tissue from deceased patients; generalization to living patients
 unvalidated</li>
-<li><strong>Single cohort</strong>: Requires validation on independent
-datasets (GSE59685, GSE80970)</li>
-<li><strong>Brain tissue only</strong>: Clinical utility depends on
+<li><strong>2. Single cohort</strong>: Requires validation on
+independent datasets (GSE59685, GSE80970)</li>
+<li><strong>3. Brain tissue only</strong>: Clinical utility depends on
 validating in accessible biofluids (blood, CSF)</li>
 </ul>
-<p>This said, this API represents the critical translation step from
-research finding to clinical decision support tool, making advanced
-epigenetic analysis accessible at the point of care.</p>
+<hr />
+</div>
+<div id="summary" class="section level2" number="8.6">
+<h2><span class="header-section-number">8.6</span>
+<strong>Summary</strong></h2>
+<p>The API bridges the gap between statistical modeling and clinical
+application by:</p>
+<p><strong>1. Abstracting complexity</strong>: Clinicians send simple
+JSON requests, receive interpretable risk assessments</p>
+<p><strong>2. Automating preprocessing</strong>: Beta-to-M conversion
+and data validation handled automatically</p>
+<p><strong>3. Providing clinical context</strong>: Risk stratification
+and evidence-based recommendations included</p>
+<p><strong>4. Enabling integration</strong>: Standard HTTP interface
+compatible with any programming language or system</p>
+<p><strong>6. Ensuring reliability</strong>: Comprehensive input
+validation prevents errors</p>
+<p><strong>Deployment pathway:</strong></p>
+<ol style="list-style-type: decimal">
+<li>Validate on independent post-mortem datasets</li>
+<li>Test generalization to blood/CSF methylation data<br />
+</li>
+<li>Conduct prospective clinical validation study</li>
+<li>Seek regulatory approval (FDA clearance)</li>
+<li>Deploy on secure, compliant infrastructure</li>
+</ol>
+<p>This API represents the critical translation step from research
+finding to clinical decision support tool, making advanced epigenetic
+analysis accessible at the point of care</p>
 <hr />
 </div>
 </div>

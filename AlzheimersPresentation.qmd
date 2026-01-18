@@ -340,28 +340,58 @@ selected_cpg_details <- cpg_results[cpg_results$CpG %in% top_cpgs, ]
 selected_cpg_details$Direction <- ifelse(selected_cpg_details$Beta_Coefficient > 0,
                                          "Hypermethylation", "Hypomethylation")
 
-par(mfrow=c(1,2), mar=c(4,4,2,1))
+par(mfrow = c(1, 2), mar = c(4, 4, 2, 1))
 
 # Volcano plot
 plot(cpg_results$Beta_Coefficient, cpg_results$log10p, 
-     pch=20, cex=0.5, col=ifelse(cpg_results$selected, "gold", "gray70"),
-     xlab="Effect Size (β coefficient)", ylab="-log10(p-value)",
-     main="Volcano Plot: Genome-wide Results", cex.main=0.9)
-abline(h=bonferroni_threshold, col="red", lty=2, lwd=2)
-abline(h=-log10(0.05), col="turquoise", lty=3, lwd=1)
-legend("topright", legend=c("Selected", "Not selected", "Bonferroni", "p=0.05"),
-       col=c("gold", "gray70", "red", "turquoise"), 
-       pch=c(20,20,NA,NA), lty=c(NA,NA,2,3), cex=0.65)
+     pch = 20, cex = 0.5,
+     col = ifelse(cpg_results$selected, "gold", "gray70"),
+     xlab = "Effect Size (β coefficient)",
+     ylab = "-log10(p-value)",
+     main = "Volcano Plot: Genome-wide Results",
+     cex.main = 0.9)
+
+abline(h = bonferroni_threshold, col = "red", lty = 2, lwd = 2)
+abline(h = -log10(0.05), col = "turquoise", lty = 3, lwd = 1)
+
+legend("topright",
+       legend = c("Selected", "Not selected", "Bonferroni", "p = 0.05"),
+       col = c("gold", "gray70", "red", "turquoise"),
+       pch = c(20, 20, NA, NA),
+       lty = c(NA, NA, 2, 3),
+       cex = 0.65)
 
 # Effect sizes
-barplot(selected_cpg_details$Beta_Coefficient[order(selected_cpg_details$Beta_Coefficient)],
-        names.arg=selected_cpg_details$CpG[order(selected_cpg_details$Beta_Coefficient)],
-        horiz=TRUE, las=1, col=ifelse(selected_cpg_details$Beta_Coefficient[order(selected_cpg_details$Beta_Coefficient)] > 0, "lightblue", "orange"),
-        xlab="β coefficient", main="Selected CpG Effect Sizes", 
-        cex.names=0.55, cex.main=0.9, cex.axis=0.75)
-abline(v=0, lty=2)
+barplot(selected_cpg_details$Beta_Coefficient[
+          order(selected_cpg_details$Beta_Coefficient)],
+        names.arg = selected_cpg_details$CpG[
+          order(selected_cpg_details$Beta_Coefficient)],
+        horiz = TRUE,
+        las = 1,
+        col = ifelse(selected_cpg_details$Beta_Coefficient[
+                       order(selected_cpg_details$Beta_Coefficient)] > 0,
+                     "lightblue", "orange"),
+        xlab = expression(beta~"coefficient (M-value change per Braak stage)"),
+        main = "Selected CpG Effect Sizes",
+        cex.names = 0.55,
+        cex.main = 0.9,
+        cex.axis = 0.75)
 
-par(mfrow=c(1,1))
+abline(v = 0, lty = 2)
+
+# Subtitle (matches ggplot subtitle)
+mtext("M-value change per Braak stage increase",
+      side = 3, line = 0.3, cex = 0.75)
+
+# Legend for direction (matches ggplot fill labels)
+legend("bottomright",
+       legend = c("Hypermethylation",
+                  "Hypomethylation"),
+       fill = c("lightblue", "orange"),
+       border = NA,
+       cex = 0.7)
+
+par(mfrow = c(1, 1))
 ```
 
 ---

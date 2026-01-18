@@ -1,0 +1,446 @@
+# ==============================================================================
+# PROJECT PHASE 2: INTERACTIVE USER INTERFACE (SHINY APP)
+# ==============================================================================
+# TITLE:       Alzheimer's Disease Clinical Prediction Tool
+# DATASET:     GSE66351 (Post-mortem Brain Tissue Methylation)
+# AUTHORS:     Carmen Caltagirone, Marc Verdaguer, Maria Artigas
+# DATE:        January 2026
+#
+# ------------------------------------------------------------------------------
+# 1. EXECUTIVE SUMMARY & ARCHITECTURE
+# ------------------------------------------------------------------------------
+# This application serves as the "Frontend Client" in a microservices architecture.
+# It is strictly decoupled from the mathematical model (Phase 1), ensuring modularity.
+#
+# - PHASE 1 (BACKEND): The Logistic Regression model runs inside a separate 
+#   R Plumber API service (Dockerized container). It handles the statistical logic.
+#
+# - PHASE 2 (FRONTEND): This Shiny App acts as the user interface. It contains 
+#   NO model weights. Instead, it dynamically queries the API to "discover" 
+#   the model structure and request predictions.
+# ==============================================================================
+
+library(shiny)
+library(httr)       # Implements HTTP protocols (GET/POST) to talk to the API
+library(jsonlite)   # Handles JSON serialization/deserialization
+library(ggplot2)    # Visualization of risk probabilities
+library(shinythemes)# Professional UI styling (Theme: Flatly)
+library(DT)         # Rendering of data tables
+
+# ==============================================================================
+# 2. NETWORK CONFIGURATION (Docker & Local Support)
+# ==============================================================================
+
+# API Endpoint Logic:
+# The app checks if it's running inside a Docker container (reading system env vars).
+# If not (local RStudio), it defaults to localhost. This allows seamless transitions
+# between development (Phase 2) and deployment (Phase 3).
+API_URL <- Sys.getenv("API_URL")
+if (API_URL == "") {
+  API_URL <- "http://127.0.0.1:8000" 
+}
+
+# HEALTH CHECK FUNCTION:
+# Acts as a "Ping". It verifies if the Backend is online before loading the UI.
+check_api_status <- function() {
+  tryCatch({
+    res <- GET(paste0(API_URL, "/health"), timeout(2))
+    return(status_code(res) == 200)
+  }, error = function(e) {
+    return(FALSE)
+  })
+}
+
+# ==============================================================================
+# 3. USER INTERFACE (UI) LAYOUT
+# ==============================================================================
+
+ui <- fluidPage(
+  theme = shinytheme("flatly"),
+  
+  titlePanel("Alzheimer's Disease Clinical Prediction Tool (GSE66351)"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      width = 3,
+      h4("Patient Clinical Profile"),
+      helpText("Input the demographic and covariate data required by the Logistic Regression model."),
+      
+      # ------------------------------------------------------------------------
+      # DYNAMIC INPUTS (State: Initializing)
+      # ------------------------------------------------------------------------
+      # Note on Covariates: These variables (Age, Sex, Region, Cell Type) were 
+      # identified as significant confounders during the Phase 1 Linear Regression 
+      # analysis. They are essential to adjust the methylation signal.
+      #
+      # We initialize them as empty. The Server will populate them automatically
+      # via the API handshake (Dynamic Feature Discovery).
+      
+      div(class = "well", style = "padding: 10px;",
+          numericInput("input_age", "Patient Age (Years):", value = 75, min = 50, max = 110),
+          
+          selectInput("input_sex", "Biological Sex:", 
+                      choices = c("Initializing..." = "")),
+          
+          selectInput("input_region", "Brain Region Sampled:", 
+                      choices = c("Initializing..." = "")),
+          
+          selectInput("input_cell_type", "Tissue Composition:", 
+                      choices = c("Initializing..." = ""))
+      ),
+      
+      hr(),
+      
+      h4("Analysis Controls"),
+      actionButton("btn_predict", "Run Diagnostic Model", 
+                   class = "btn-primary btn-lg", width = "100%", icon = icon("dna")),
+      
+      br(), br(),
+      
+      # Connection Status Indicator (Real-time feedback for the user)
+      div(style = "text-align: center;",
+          uiOutput("connection_status_ui")
+      )
+    ),
+    
+    mainPanel(
+      width = 9,
+      
+      tabsetPanel(
+        # TAB 1: DIAGNOSTIC DASHBOARD
+        # ----------------------------------------------------------------------
+        tabPanel("Diagnostic Panel", icon = icon("user-md"),
+                 br(),
+                 
+                 # Error Handling: Visual banner if API connection is lost
+                 conditionalPanel(
+                   condition = "output.api_connected == false",
+                   div(class = "alert alert-danger",
+                       h4(icon("sync", class = "fa-spin"), " Connecting to Model API..."),
+                       p("Attempting to reach ", code(API_URL)),
+                       p("Please ensure 'APIFinalProject.r' is running on port 8000.")
+                   )
+                 ),
+                 
+                 fluidRow(
+                   # LEFT COLUMN: Epigenetic Inputs
+                   column(5,
+                          div(class = "panel panel-primary",
+                              div(class = "panel-heading", h4(icon("sliders-h"), " Epigenetic Markers (DNA Methylation)")),
+                              div(class = "panel-body",
+                                  p("Enter Beta Values (0.0 - 1.0) for the specific CpG sites identified by the model."),
+                                  tags$hr(),
+                                  
+                                  # Loading Spinner
+                                  conditionalPanel(
+                                    condition = "output.api_connected == true && output.sliders_ready == false",
+                                    p(icon("spinner", class = "fa-spin"), " Fetching model parameters from Backend...")
+                                  ),
+                                  
+                                  # Placeholder for Dynamic UI (Sliders generated by Server)
+                                  uiOutput("cpg_sliders_ui") 
+                              )
+                          )
+                   ),
+                   
+                   # RIGHT COLUMN: Model Output & Interpretation
+                   column(7,
+                          div(class = "panel panel-info",
+                              div(class = "panel-heading", h4(icon("chart-line"), " Model Output")),
+                              div(class = "panel-body",
+                                  
+                                  # Probability Score
+                                  div(style = "text-align: center; padding: 20px; background-color: #f8f9fa; border-radius: 5px;",
+                                      h4("Predicted Probability of AD:"),
+                                      h1(textOutput("pred_prob_text"), style = "font-weight: bold; color: #2c3e50; font-size: 3em;"),
+                                      uiOutput("risk_badge")
+                                  ),
+                                  hr(),
+                                  
+                                  # Clinical/Forensic Interpretation
+                                  h4("Clinical Interpretation"),
+                                  div(style = "border-left: 5px solid #3498db; padding-left: 10px;",
+                                      textOutput("pred_recommendation")
+                                  ),
+                                  br(),
+                                  p(strong("Methodology:"), " Prediction based on Logistic Regression model trained on 190 post-mortem samples (GSE66351)."),
+                                  
+                                  hr(),
+                                  p(em("DISCLAIMER: Research prototype for retrospective molecular analysis. Not for clinical diagnosis."), 
+                                    style = "color: #7f8c8d; font-size: 0.85em;")
+                              )
+                          ),
+                          
+                          # Visualization Plot
+                          plotOutput("contribution_plot", height = "250px")
+                   )
+                 )
+        ),
+        
+        # TAB 2: MODEL TRANSPARENCY (EXPLAINABLE AI)
+        # ----------------------------------------------------------------------
+        tabPanel("Model Specifications", icon = icon("database"),
+                 br(),
+                 h3("Phase 1: Model Architecture"),
+                 
+                 div(class = "well",
+                     h4("Model Metadata (Live Retrieval from API)"),
+                     uiOutput("model_info_ui") 
+                 ),
+                 
+                 h4("Performance Metrics (Independent Test Set)"),
+                 p("Metrics obtained from the 30% hold-out test set during Phase 1 training."),
+                 tableOutput("model_metrics_table")
+        )
+      )
+    )
+  )
+)
+
+# ==============================================================================
+# 4. SERVER SIDE LOGIC
+# ==============================================================================
+
+server <- function(input, output, session) {
+  
+  # Reactive State Machine: Manages data flow and API status
+  state <- reactiveValues(
+    api_connected = FALSE,
+    cpgs = NULL,  
+    info = NULL   
+  )
+  
+  # ----------------------------------------------------------------------------
+  # A. ROBUST INITIALIZATION & HANDSHAKE PROTOCOL
+  # ----------------------------------------------------------------------------
+  observe({
+    # 1. Connection Check
+    connected <- check_api_status()
+    state$api_connected <- connected
+    
+    # 2. Auto-Retry Logic: If disconnected, try again in 3 seconds
+    if (!connected) {
+      invalidateLater(3000, session)
+    } else if (is.null(state$cpgs)) {
+      # 3. HANDSHAKE & DYNAMIC DISCOVERY
+      # Once connected, we perform a "handshake" with the API to configure the UI.
+      
+      tryCatch({
+        # Step A: Get Model Metadata (Algorithm type, required CpGs)
+        info_res <- GET(paste0(API_URL, "/model-info"))
+        info_data <- fromJSON(content(info_res, "text", encoding = "UTF-8"))
+        
+        state$info <- info_data
+        state$cpgs <- info_data$cpg_sites 
+        
+        # Step B: Discover Valid Factor Levels (The "Smart Client" Logic)
+        # We send a dummy payload intentionally. The API validates it and returns
+        # the correct factor levels (e.g., "Male" vs "M") in the error response.
+        # This prevents hardcoding values in the app.
+        dummy_payload <- list(
+          M_values = rep(0, length(state$cpgs)),
+          age = 75,
+          sex = "__DISCOVERY__",
+          cell_type = "__DISCOVERY__",
+          region = "__DISCOVERY__"
+        )
+        
+        dummy_res <- POST(
+          url = paste0(API_URL, "/predict"),
+          body = dummy_payload,
+          encode = "json"
+        )
+        
+        # Capture the metadata from the 400 Bad Request response
+        if (status_code(dummy_res) == 400) {
+          err <- fromJSON(content(dummy_res, "text", encoding = "UTF-8"))
+          
+          # Dynamic UI Update: Populate dropdowns with API-provided levels
+          if (!is.null(err$valid_levels$sex)) {
+            updateSelectInput(session, "input_sex",
+                              choices = setNames(err$valid_levels$sex, err$valid_levels$sex),
+                              selected = err$valid_levels$sex[1])
+          }
+          if (!is.null(err$valid_levels$cell_type)) {
+            updateSelectInput(session, "input_cell_type",
+                              choices = setNames(err$valid_levels$cell_type, err$valid_levels$cell_type),
+                              selected = err$valid_levels$cell_type[1])
+          }
+          if (!is.null(err$valid_levels$region)) {
+            updateSelectInput(session, "input_region",
+                              choices = setNames(err$valid_levels$region, err$valid_levels$region),
+                              selected = err$valid_levels$region[1])
+          }
+          showNotification("System synchronized with Model API.", type = "message")
+        }
+        
+      }, error = function(e) {
+        showNotification("Warning: Model discovery handshake failed.", type = "warning")
+      })
+    }
+  })
+  
+  # Update UI elements based on connection status
+  output$api_connected <- reactive({ state$api_connected })
+  output$sliders_ready <- reactive({ !is.null(state$cpgs) })
+  outputOptions(output, "api_connected", suspendWhenHidden = FALSE)
+  outputOptions(output, "sliders_ready", suspendWhenHidden = FALSE)
+  
+  # Status Icon Logic
+  output$connection_status_ui <- renderUI({
+    if(state$api_connected) {
+      tagList(icon("check-circle", style = "color: green; font-size: 2em;"),
+              h5("System Online", style = "color: green;"))
+    } else {
+      tagList(icon("times-circle", style = "color: red; font-size: 2em;"),
+              h5("API Offline", style = "color: red;"))
+    }
+  })
+  
+  # ----------------------------------------------------------------------------
+  # B. DYNAMIC INPUT GENERATION
+  # ----------------------------------------------------------------------------
+  # Automatically creates a slider for each CpG site defined in the API metadata
+  output$cpg_sliders_ui <- renderUI({
+    req(state$cpgs)
+    
+    ui_elements <- lapply(1:length(state$cpgs), function(i) {
+      cpg_id <- state$cpgs[i]
+      div(style = "background-color: #f7f7f7; padding: 10px; margin-bottom: 10px; border-radius: 5px; border-left: 3px solid #18bc9c;",
+          strong(paste("Biomarker", i, ":", cpg_id)),
+          sliderInput(inputId = paste0("cpg_", i), 
+                      label = "Methylation Level (Beta Value)", 
+                      min = 0, max = 1, value = 0.5, step = 0.01, ticks = FALSE)
+      )
+    })
+    do.call(tagList, ui_elements)
+  })
+  
+  # ----------------------------------------------------------------------------
+  # C. PREDICTION LOGIC & DATA TRANSFORMATION
+  # ----------------------------------------------------------------------------
+  
+  # DATA TRANSFORMATION THEORY:
+  # The UI uses Beta values (0-1) for interpretability. 
+  # The Backend Model uses M-values (Log2 Ratio) for statistical homoscedasticity.
+  # This function handles the necessary transformation before API transmission.
+  beta_to_m <- function(beta) {
+    beta <- ifelse(beta <= 0, 0.001, beta)
+    beta <- ifelse(beta >= 1, 0.999, beta)
+    return(log2(beta / (1 - beta)))
+  }
+  
+  observeEvent(input$btn_predict, {
+    req(state$api_connected, state$cpgs)
+    
+    # 1. Validation: Ensure all inputs are loaded
+    if (input$input_sex == "" || input$input_region == "") {
+      showNotification("Please wait for model options to load...", type = "warning")
+      return() 
+    }
+    
+    # 2. Prepare Payload: Convert Beta inputs to M-values
+    m_values_input <- numeric(length(state$cpgs))
+    for(i in 1:length(state$cpgs)) {
+      m_values_input[i] <- beta_to_m(input[[paste0("cpg_", i)]])
+    }
+    
+    payload <- list(
+      M_values = m_values_input,
+      age = input$input_age,
+      sex = input$input_sex,
+      cell_type = input$input_cell_type,
+      region = input$input_region
+    )
+    
+    # 3. API Call: Send data to Backend
+    withProgress(message = 'Analyzing...', value = 0.5, {
+      tryCatch({
+        res <- POST(url = paste0(API_URL, "/predict"), body = payload, encode = "json")
+        
+        if (status_code(res) == 200) {
+          result_data <- fromJSON(content(res, "text", encoding = "UTF-8"))
+          
+          # 4. Render Results
+          prob <- result_data$prediction$probability_AD
+          output$pred_prob_text <- renderText({ result_data$prediction$probability_percent })
+          output$pred_recommendation <- renderText({ result_data$clinical_interpretation$recommendation })
+          
+          # Risk Level Badge
+          output$risk_badge <- renderUI({
+            lvl <- result_data$prediction$risk_level
+            color <- switch(lvl, "LOW" = "#27ae60", "MODERATE" = "#f39c12", "HIGH" = "#c0392b")
+            div(style = paste0("background-color:", color, "; color: white; padding: 5px 15px; border-radius: 20px; display: inline-block; margin-top: 10px;"),
+                strong(paste("Risk Category:", lvl))
+            )
+          })
+          
+          # Visualization
+          output$contribution_plot <- renderPlot({
+            df <- data.frame(Metric = "Patient Risk", Value = prob)
+            ggplot(df, aes(x=Metric, y=Value)) +
+              geom_col(fill = ifelse(prob > 0.5, "#c0392b", "#27ae60"), width = 0.3) +
+              geom_hline(yintercept = 0.5, linetype = "dashed", color = "gray50") +
+              annotate("text", x=1.4, y=0.52, label="Clinical Cutoff (0.5)", color="gray40") +
+              scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
+              coord_flip() +
+              labs(title = "Probability vs Decision Threshold", y = "Probability", x = "") +
+              theme_minimal() + theme(plot.title = element_text(face="bold"))
+          })
+          
+        } else {
+          # Error Handling: Show specific API error message
+          api_error <- content(res, "text", encoding = "UTF-8")
+          showNotification(paste("API Error:", api_error), type = "error", duration = 10)
+        }
+      }, error = function(e) {
+        showNotification("Communication breakdown: API did not respond.", type = "error")
+      })
+    })
+  })
+  
+  # ----------------------------------------------------------------------------
+  # D. METADATA & VALIDATION TABS
+  # ----------------------------------------------------------------------------
+  
+  # Render General Model Information as a formatted list
+  output$model_info_ui <- renderUI({
+    req(state$info)
+    info <- state$info
+    
+    tagList(
+      tags$ul(
+        tags$li(strong("Algorithm: "), info$model_type),
+        tags$li(strong("Target: "), info$outcome),
+        tags$li(strong("Dataset: "), info$dataset),
+        tags$li(strong("Input Features: "), paste(info$n_predictors, "total (", info$n_cpg_sites, "CpG sites + covariates)")),
+        tags$li(strong("Selected CpGs: "), paste(info$cpg_sites, collapse=", ")),
+        tags$li(strong("Note: "), info$note)
+      )
+    )
+  })
+  
+  # Render Performance Metrics Table (Formatted cleanly)
+  output$model_metrics_table <- renderTable({
+    req(state$info)
+    metrics <- state$info$performance
+    
+    if(!is.null(metrics) && is.list(metrics)) {
+      data.frame(
+        Metric = c("Test Accuracy", "Sensitivity", "Specificity", "PPV", "NPV"),
+        Value = c(
+          paste0(metrics$test_accuracy, "%"), 
+          paste0(metrics$test_sensitivity, "%"), 
+          paste0(metrics$test_specificity, "%"),
+          paste0(metrics$test_ppv, "%"),
+          paste0(metrics$test_npv, "%")
+        )
+      )
+    } else {
+      data.frame(Status = "Metrics not available")
+    }
+  })
+}
+
+# Run the application 
+shinyApp(ui = ui, server = server)

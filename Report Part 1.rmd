@@ -1350,11 +1350,6 @@ Generates Alzheimer's risk prediction for individual patients.
 - Clinical recommendations based on risk level
 - Model confidence metrics
 
-**Risk stratification:**
-
-- **LOW** (< 30%): Standard follow-up recommended
-- **MODERATE** (30-70%): Additional testing suggested (MRI, CSF biomarkers, PET scan)
-- **HIGH** (≥ 70%): Comprehensive neurological evaluation strongly recommended
 
 ### **5. Dataset Statistics (`GET /dataset-stats`)**
 

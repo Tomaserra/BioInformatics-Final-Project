@@ -1,5 +1,6 @@
 ---
 title: "BioInfProjectPhase2"
+author: "Marco Banfi, Simone Carrieri, Tomás Serra"
 format:
   pdf:
     pdf-engine: xelatex
@@ -314,7 +315,7 @@ if (file.exists(f)) {
 
 
 
-# **Help / Support**
+# **Some challenges & Solutions**
 
 ## **Docker build fails (R packages missing)**
 
@@ -381,7 +382,4 @@ A frequent cause is an R parsing error (e.g., unbalanced quotes). Inspect logs:
 docker compose logs -f shiny
 ```
 
-**Disclaimer**
-
-This project is for educational purposes only and does not replace clinical judgment.
 

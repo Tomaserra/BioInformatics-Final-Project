@@ -22,36 +22,43 @@ editor: visual
 
 # **Introduction**
 
-Option 1) We first carried out a short issue management step to identify the main open issues in the exchanged project and prioritize the fixes. We then extend the Phase 1 predictive service (Plumber API + trained logistic regression model) by adding a Shiny user interface and a fully reproducible deployment based on two interconnected Docker containers (API + Shiny). We keep the Phase 1 model and inference logic unchanged: in Phase 2, we treat the API as a black box and focus on usability, clean integration, and portability across environments. The UI collects patient inputs, performs basic validation, sends a JSON request to /predict, and presents the returned death probability clearly (including a simple risk bucket for presentation), while the API remains responsible for loading the unchanged model from model/model_logistic_DEATH_EVENT.rds and producing predictions.
+We first performed a short issue-management step to identify and prioritize the main open issues in the exchanged project. Then Phase 2 extends the Phase 1 predictive service (Plumber API + trained logistic regression model) by adding a Shiny user interface that consumes the API strictly as a black box, and by providing a fully reproducible deployment using two interconnected Docker containers (API + Shiny) orchestrated with Docker Compose. The Phase 1 model and inference logic remain unchanged. The UI collects patient inputs, performs basic client-side validation, sends a JSON request to `/predict`, and presents the returned death probability clearly (including a simple risk bucket for presentation only), while the API is responsible for loading the model artifact and producing predictions.
 
-Option 2) Phase 2 extends the Phase 1 predictive service (Plumber API + trained logistic regression model) by adding a Shiny user interface that consumes the API strictly as a black box, and by providing a reproducible deployment with two interconnected Docker containers (API + Shiny). After the issue management phase, no changes are introduced to the trained model or the inference logic; the focus is on usability, integration, and deployment reproducibility.
+***Deliverable Summary***
 
-***Deliverable Summary*** 
+We provide:
 
-In this deliverable we provide:
+-   a Shiny user interface (UI) that collects patient inputs, validates them, and display prediction results.
 
-- a Shiny web UI that collects patient inputs, calls the Plumber API, and displays the predicted death probability (with a simple risk bucket for presentation purposes);
+-   a Dockerized two-container deployment (API + UI) orchestrated via Docker Compose
 
-- a documented API contract for `/health` and `/predict` (including input validation rules and JSON payload/response format);
+- A minimal verification protocol (health check + example prediction) for users
 
-- a reproducible deployment via two Docker containers (API + Shiny) orchestrated with `docker compose`;
+# **System Overview**
 
-- a practical execution and verification workflow (GitHub Codespaces with port forwarding).
+## **Components and responsabilities**
 
-# **Architecture**
+**API (Plumber container)**
 
-## **System Overview**
+- Loads the model artifact at startup.
 
-The system is composed of:
+- Exposes:
 
--   **API service (plumber, Phase 1)**\
-    Runs `plumber.R`, loads `model/model_logistic_DEATH_EVENT.rds`, and exposes REST endpoints.
--   **UI service (Shiny, Phase 2)**\
-    Runs `shiny/app.R`, collects inputs, calls the API, and renders the returned prediction.
--   **Orchestration (Docker Compose)**\
-    `docker-compose.yml` builds, starts, and networks the two services.
+  - `GET /health` (readiness check)
+  
+  - `POST /predict` (inference)
 
-## **Architecture Diagram**
+**UI (Shiny container)**
+
+- Collects patient input variables.
+
+- Performs basic client-side validation.
+
+- Sends a JSON request to the API and displays the returned probability.
+
+- Does not contain or load the model artifact.
+
+**Architecture diagram**
 
 ```{mermaid}
 %%| fig-align: center
@@ -90,47 +97,153 @@ flowchart TB
 
 ```
 
-## **Networking Semantics: Host vs Container**
+## Networking semantics (Host vs Docker network)
 
--   From the host machine (your browser/terminal), http://localhost:8000 works because Docker publishes port 8000 to the host.
+From the host machine (your Windows terminal/browser):
 
--   From inside the Shiny container, localhost refers to the Shiny container itself. Therefore, the Shiny app must call the API using the Docker Compose service name:
+- API is reachable at `http://localhost:8000`
+- Shiny is reachable at `http://localhost:3838`
 
--   Inside Docker: API_BASE_URL = http://api:8000
+From inside Docker (container-to-container):
 
--   Running Shiny locally: API_BASE_URL = http://127.0.0.1:8000
+- The Shiny container reaches the API at `http://api:8000`
+
+Here, `api` is the service name defined in `docker-compose.yml` and is resolvable via Docker DNS.
 
 ## **Project Structure**
 
-```text
+``` text
 .
 +-- api/
 |   +-- Dockerfile
+|   +-- plumber.R
+|   +-- model/
+|       +-- model_logistic_DEATH_EVENT.rds
 +-- shiny/
 |   +-- app.R
 |   +-- Dockerfile
 +-- docker-compose.yml
-+-- plumber.R
-+-- model/
-|   +-- model_logistic_DEATH_EVENT.rds
 +-- README.md
 ```
 
-# **How to Run (Docker)**
 
-From the repository root:
+# API Specification (Plumber)
 
-``` bash
+## Endpoints
+
+| Endpoint   | Method | Purpose                  | Success Response                   |
+| ---------- | -----: | ------------------------ | ---------------------------------- |
+| `/health`  |    GET | Service readiness check  | JSON: `{ "status": "ok" }`         |
+| `/predict` |   POST | Return death probability | JSON: `{ "probability": <float> }` |
+
+
+## Input contract for `/predict`
+
+The request body is JSON with the following fields:
+
+| Field               | Type    | Expected range (server validation) |
+| ------------------- | ------- | ---------------------------------- |
+| `age`               | numeric | 0–120                              |
+| `ejection_fraction` | numeric | 0–100                              |
+| `serum_creatinine`  | numeric | >0–20                              |
+| `serum_sodium`      | numeric | 90–200                             |
+
+On invalid inputs, the API returns HTTP 400 with a JSON error message, e.g. `{ "error": "..." }`.
+
+
+## Swagger / API docs
+
+Plumber interactive documentation (when enabled by Plumber) is available at:
+
+- `http://localhost:8000/__docs__/`
+
+# Shiny UI Behavior
+
+The Shiny UI is designed to be a black-box client:
+
+- It never loads `.rds` files and does not perform model inference locally.
+
+- It only communicates with the API via HTTP and depends on the API contract.
+
+Core UI actions:
+
+- Read numeric inputs aligned to the API contract.
+
+- Validate inputs locally (fast feedback to users).
+
+- Send JSON to `/predict`.
+
+- Display:
+
+  - predicted probability (as percent formatting)
+
+  - a simple presentation-only risk bucket (not a clinical threshold)
+
+## API base URL configuration
+
+The UI reads `API_BASE_URL`:
+
+- Inside Docker Compose: `API_BASE_URL=http://api:8000`
+
+- Local UI without Docker networking: `API_BASE_URL=http://127.0.0.1:8000`
+
+# Containerization and Deployment
+
+## API container (`api/Dockerfile`)
+
+- Base image: `rocker/r-ver:4.3.1`
+
+- Installs system dependencies and R packages (`plumber`, `jsonlite`).
+
+- Copies `plumber.R` and `model/` into `/app/`.
+
+- Exposes port `8000`.
+
+- Starts Plumber on `0.0.0.0:8000`.
+
+## Shiny container (`shiny/Dockerfile`)
+
+- Base image: `rocker/shiny:4.3.1`
+
+- Installs R packages for HTTP + JSON handling.
+
+- Copies `app.R` into the Shiny app directory.
+
+- Exposes port `3838`.
+
+## Orchestration (`docker-compose.yml`)
+
+Docker Compose:
+
+- Builds two images (API and Shiny) from separate contexts (`./api` and `./shiny`).
+
+- Creates a shared Docker network for inter-service communication.
+
+- Maps host ports:
+
+  - `8000:8000` for the API
+
+  - `3838:3838` for Shiny
+
+# How to Run and Verify
+
+In this project, the **primary execution and verification** were performed in **GitHub Codespaces** using Docker Compose and port forwarding. **Local execution is supported**, but in our case it was not feasible due to limited disk/storage on the local machine.
+
+### Primary workflow — GitHub Codespaces (recommended)
+
+**Step 1 - Start services**
+
+From the repository root (where `docker-compose.yml` is located):
+
+```bash
 docker compose up -d --build
 ```
 
-Then open:
+**Step 2 - Check containers status**
 
--   API: `http://localhost:8000`
-
--   Swagger: `http://localhost:8000/__docs__/`
-
--   Shiny UI: `http://localhost:3838/app`
+```bash
+docker compose ps
+```
 
 ```{r fig-docker-ps, echo=FALSE, results="asis", fig.cap="Docker Compose running state (`docker compose ps -a`).", out.width="90%", fig.align="center"}
 f <- "figures/docker_compose_ps.png"
@@ -141,41 +254,12 @@ if (file.exists(f)) {
 }
 ```
 
-## **Running from GitHub Codespaces (No Local Docker Required)**
+**Step 3 - Forward ports**
 
-The full system can be executed in GitHub Codespaces and accessed through forwarded ports. (save locally storage space!)
+In the Codespaces **Ports** panel, forward:
 
-1)  Create a Codespace
-
--   Open the repository on GitHub
-
--   Click Code → Codespaces
-
--   Click Create codespace on main
-
--   Wait for the VS Code environment to load
-
-2)  Start the System in Codespaces
-
-In the Codespaces terminal:
-
-``` bash
-docker compose up -d --build
-```
-
-3)  Forward Ports and Access Services
-
-In the Codespaces Ports panel:
-
-Ensure ports 8000 (API) and 3838 (Shiny) are forwarded
-
-Open the forwarded URLs and append:
-
-API health check: `/health`
-
-Swagger: `/__docs__/`
-
-Shiny UI: `/app`
+- `8000` (API)
+- `3838` (Shiny)
 
 ```{r fig-codespaces-ports, echo=FALSE, results="asis", fig.cap="GitHub Codespaces port forwarding for the API (8000) and Shiny UI (3838).", out.width="90%", fig.align="center"}
 
@@ -187,45 +271,13 @@ if (file.exists(f)) {
 }
 ```
 
-4)  Stop Services and Release Resources
+### Step 4 — Verify the API
 
-``` bash
-docker compose down
-```
+Using the forwarded URL for port `8000`:
 
-## **API Tests (Docker / Codespaces)**
+- Open `/health` for readiness
 
-### **Health Check**
-
-``` bash
-curl http://localhost:8000/health
-```
-
-*Expected response:*
-
-``` json
-{"status":"ok"}
-```
-
-### **Prediction**
-
-``` bash
-curl -i -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{"age":60,"ejection_fraction":40,"serum_creatinine":1.2,"serum_sodium":135}'
-```
-
-*Expected response fields:*
-
-`probability` (numeric in `[0, 1]`)
-
-# **Swagger API Documentation**
-
-Swagger is available at:
-
-- `http://localhost:8000/__docs__/` (local Docker)
-
-- forwarded port URL + `/__docs__/` (Codespaces)
+- Open `/__docs__/` for Swagger UI
 
 ```{r fig-swagger, echo=FALSE, results="asis", fig.cap="Swagger UI generated by the Plumber API (/__docs__/) showing /health and /predict.", out.width="90%", fig.align="center"}
 
@@ -237,27 +289,50 @@ if (file.exists(f)) {
 }
 ```
 
-# **Phase 2 UI Behavior (Black-Box Consumption)**
+(Example: `<FORWARDED_8000_URL>/health`)
 
-The Shiny UI:
+### Step 5 — Verify the UI
 
--   collects the required clinical inputs:
+Using the forwarded URL for port `3838`:
 
-    -   `age`, `ejection_fraction`, `serum_creatinine`, `serum_sodium`
+- Open the Shiny application (root)
 
--   performs basic client-side range validation
+- If your setup serves the app under a subpath, use `/app`
 
--   checks API availability via GET /health and displays a status indicator
+(Example: `<FORWARDED_3838_URL>/app`)
 
--   sends inputs as JSON to POST /predict
 
--   renders the returned probability and a presentation-friendly percentage
+## API-level tests (Codespaces or local terminal)
 
--   optionally displays the raw JSON response and allows downloading the latest prediction as a JSON file
+If you run the commands inside the Codespaces terminal, you can still test using `localhost` because the terminal runs in the same environment where containers are running.
 
-The UI does not execute the model locally and contains no inference logic beyond validation and presentation.
+Health check:
 
-\newpage
+```bash
+curl http://localhost:8000/health
+```
+
+Prediction example:
+
+```bash
+curl -X POST http://localhost:8000/predict -H "Content-Type: application/json" -d '{"age":60,"ejection_fraction":40,"serum_creatinine":1.2,"serum_sodium":135}'
+```
+
+Expected example response:
+
+```json
+{"probability":[0.1857]}
+```
+
+## UI verification (browser)
+
+Open the Shiny UI via the forwarded port `3838` URL and run one prediction to verify:
+
+- inputs are validated locally,
+
+- the API status is reachable,
+
+- a probability is returned and displayed.
 
 ***Shiny UI — Predict Tab: Patient inputs and prediction output (probability + risk bucket)***
 
@@ -299,72 +374,45 @@ if (file.exists(f)) {
 
 
 
-# **Some challenges & Solutions**
+## Local execution (optional)
 
-**Docker build fails (R packages missing)**
+Local execution follows the same commands, but requires sufficient disk space to pull large base images and build containers.
 
-If logs show errors such as:
+Run:
 
--   `there is no package called 'plumber'`
+``` bash
+docker compose up -d --build
+```
 
--   `there is no package called 'httr'`
-
-the Docker build likely missed system-level Linux dependencies required to compile/install R packages. Ensure Dockerfiles install OS dependencies before `install.packages()`, e.g.:
-
--   `build-essential`, `pkg-config`
-
--   `libcurl4-openssl-dev`, `libssl-dev`, `libxml2-dev`
-
--   `libsodium-dev` (for package `sodium`)
-
--   `zlib1g-dev` (for compilation dependencies)
-
-Rebuild without cache:
+Stop:
 
 ``` bash
 docker compose down
-docker compose build --no-cache api shiny
-docker compose up -d
 ```
 
-Check logs:
+Open in browser (host machine):
 
-``` bash
-docker compose logs --tail=120 api
-docker compose logs --tail=120 shiny
-```
+- API: `http://localhost:8000/health` and `http://localhost:8000/__docs__/`
 
-**UI shows API unreachable**
-
-Verify both containers are running:
-
-``` bash
-docker compose ps -a
-```
-
-Inside Docker, the UI must call the API using `http://api:8000` (not `localhost`).
-
-**Hostname api cannot be resolved**
-
-This happens when running the Shiny app outside Docker. Use Docker Compose, or set:
-
--   `API_BASE_URL=http://127.0.0.1:8000`
-
-**Port already in use**
-
-If ports 8000 or 3838 are occupied on the host, stop the conflicting process or change mappings in `docker-compose.yml` (e.g., `"8001:8000"`).
-
-**`curl` shows malformed input / bad hostname**
-
-This typically comes from incorrect line breaks. Use a single-line `curl` command or ensure `\` is the final character on each continued line.
-
-**Shiny fails to start after editing app.R**
-
-A frequent cause is an R parsing error (e.g., unbalanced quotes). Inspect logs:
-
-``` bash
-docker compose logs -f shiny
-```
+- Shiny: `http://localhost:3838/app`
 
 
+## Challenges and Solutions
+
+### Limited local storage for Docker images
+
+**Issue:** Local execution was not feasible due to limited disk/storage on the local machine (large base images and build layers).  
+**Resolution:** We used GitHub Codespaces as the primary execution environment. Codespaces allowed us to build and run the two-container deployment reliably, and to expose both services via port forwarding (`8000` for the API, `3838` for Shiny).
+
+### UI shows “API status unreachable”
+
+Common causes and fixes:
+
+- **API container not running:** verify with `docker compose ps`.
+
+- **Wrong base URL:** inside Docker use `http://api:8000`, on host use `http://127.0.0.1:8000`.
+
+- **Port forwarding not enabled (Codespaces):** forward ports `8000` and `3838` from the Ports panel.
+
+- **Port conflicts (local):** ensure `8000`/`3838` are not used by other applications.
 

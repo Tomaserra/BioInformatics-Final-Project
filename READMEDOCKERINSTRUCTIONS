@@ -1,0 +1,62 @@
+# Alzheimer's Disease Clinical Prediction Tool (GSE66351)
+
+**Authors:** Carmen Caltagirone, Marc Verdaguer, Maria Artigas  
+**Date:** January 2026
+
+## 1. Project Overview
+This project is a microservices-based application designed to predict the risk of Alzheimer's Disease based on DNA Methylation data (CpG sites) from post-mortem brain tissue (Dataset GSE66351).
+
+The system consists of two isolated Docker containers:
+1.  **Backend (API):** An R Plumber service hosting the Logistic Regression model.
+2.  **Frontend (Shiny):** An interactive user interface that queries the API for real-time predictions.
+
+## 2. Prerequisites
+You do **not** need to install R or RStudio to run this project. You only need:
+
+* **Docker Desktop**: [Download here](https://www.docker.com/products/docker-desktop/) (Ensure it is installed and running).
+* **Git**: [Download here](https://git-scm.com/downloads) (Optional, if cloning the repo).
+
+## 3. Installation & Setup
+1.  **Download the repository:**
+    Clone this repository or download the ZIP file and extract it.
+    ```bash
+    git clone [https://github.com/Tomaserra/BioInformatics-Final-Project.git](https://github.com/Tomaserra/BioInformatics-Final-Project.git)
+    ```
+
+2.  **Open your terminal:**
+    Navigate to the project folder (where the `docker-compose.yml` file is located).
+    ```bash
+    cd BioInformatics-Final-Project
+    ```
+
+## 4. How to Run the Application
+We use Docker Compose to orchestrate both services automatically.
+
+1.  **Build and Start the Containers:**
+    Run the following command in your terminal:
+    ```bash
+    docker-compose up --build
+    ```
+    *Note: The first time you run this, it may take a few minutes to download the base images and install R libraries.*
+
+2.  **Wait for Initialization:**
+    Look for the following messages in the terminal log:
+    * `alzheimers_api_container | Running on http://0.0.0.0:8000`
+    * `alzheimers_shiny_container | Listening on http://0.0.0.0:3838`
+
+## 5. Accessing the Tool
+Once the containers are running:
+
+* 👉 **Open your browser and go to:** [http://localhost:3838](http://localhost:3838)
+
+The interface should show a green **"System Online"** status, indicating the Frontend has successfully connected to the Backend API.
+
+## 6. Troubleshooting
+* **"API Offline" / Red Status:** If the Shiny app cannot connect to the model, ensure the API container is running. You can try restarting the services:
+    ```bash
+    docker-compose down
+    docker-compose up
+    ```
+* **Port Conflicts:** Ensure ports `3838` and `8000` are not being used by other applications on your machine.
+
+---
